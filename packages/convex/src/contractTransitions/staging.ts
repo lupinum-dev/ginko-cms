@@ -15,6 +15,7 @@ import {
   transitionRouteClaims,
   validateTransitionOutput,
 } from './model.js'
+import { noWritePolicyVersionChangeForRun, noWriteTransitionOutput } from './policyVersionChange.js'
 
 type StagedTransitionItem = (typeof stagedTransitionItemValidator)['type']
 
@@ -152,7 +153,8 @@ export async function stageContractTransitionPageHandler(
 ) {
   const run = await requireTransitionRun(ctx, args.runId)
   assertStagingFence(run, args)
-  const { target, affected } = await transitionCollections(ctx, run)
+  const { installed, target, affected } = await transitionCollections(ctx, run)
+  const noWritePolicyChange = await noWritePolicyVersionChangeForRun(installed, run, target)
   const result = await readStagingPage(ctx, {
     runId: run._id,
     cursor: args.cursor,
@@ -171,7 +173,7 @@ export async function stageContractTransitionPageHandler(
   for (let index = 0; index < result.snapshots.length; index += 1) {
     const expected = result.snapshots[index]!
     const item = args.items[index]!
-    if (expected.entry.activePublications.length > 0) {
+    if (expected.entry.activePublications.length > 0 && !noWritePolicyChange) {
       throw new Error(
         `CONTRACT_TRANSITION_REQUIRES_UNPUBLISH: entry "${expected.entry._id}" still has active publications.`,
       )
@@ -185,6 +187,15 @@ export async function stageContractTransitionPageHandler(
     }
     if ((await hashTransitionValue(item.output)) !== item.outputHash) {
       throw new Error(`Transition output hash mismatch for entry "${item.entryId}".`)
+    }
+    if (
+      noWritePolicyChange &&
+      (await hashTransitionValue(item.output)) !==
+        (await hashTransitionValue(noWriteTransitionOutput(expected.current)))
+    ) {
+      throw new Error(
+        `Policy-version-only transition output must preserve entry "${item.entryId}" exactly.`,
+      )
     }
     await validateTransitionOutput(ctx, expected.entry, item.output, target)
     const duplicate = await ctx.db

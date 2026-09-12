@@ -7,7 +7,7 @@ import {
   assertResolvedContentContract,
   hashCanonicalJson,
   type JsonValue,
-  type ResolvedContentContractV1,
+  type ResolvedContentContract,
 } from '@lupinum/ginko-content/cms-contract'
 import {
   defineNuxtModule,
@@ -72,7 +72,7 @@ interface NuxtOptionsExt {
   runtimeConfig: {
     public: { ginkoCms?: Record<string, unknown> }
     ginkoCms?: Record<string, unknown>
-    content?: { contract?: ResolvedContentContractV1 }
+    content?: { contract?: ResolvedContentContract }
   }
 }
 

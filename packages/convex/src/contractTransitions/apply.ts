@@ -1,16 +1,8 @@
-import type { Doc, Id } from '../_generated/dataModel.js'
-import { deleteAssetRefsForSource } from '../entries/workflow/assetRefs.js'
-import { refreshDraftAssetRefsForSave } from '../entries/workflow/commands.js'
-import { readDraftRows } from '../entries/workflow/drafts.js'
-import {
-  deleteDraftSearchEntry,
-  refreshDraftSearchEntriesForEntry,
-} from '../entries/workflow/draftSearch.js'
-import { isEqualJsonValue } from '../lib/data.js'
+import type { Id } from '../_generated/dataModel.js'
 import { projectContentCollection } from '../lib/installedContract.js'
-import type { CmsCollection, MutationCtx } from '../lib/types.js'
+import type { MutationCtx } from '../lib/types.js'
+import { applyTransitionOutput } from './applyOutput.js'
 import {
-  asTransitionEntryId,
   boundedTransitionPageSize,
   hashTransitionValue,
   readTransitionInput,
@@ -18,97 +10,9 @@ import {
   TRANSITION_APPLY_PAGE_SIZE_MAX,
   transitionCollections,
   transitionOutputFromStored,
-  type TransitionOutput,
   validateTransitionOutput,
 } from './model.js'
-
-async function applyTransitionOutput(
-  ctx: MutationCtx,
-  args: {
-    entry: Doc<'entries'>
-    output: TransitionOutput
-    collection: CmsCollection
-    actor: string
-    now: number
-  },
-): Promise<void> {
-  const drafts = await readDraftRows(ctx, args.entry._id)
-  const parentEntryId =
-    args.output.parentEntryId === null ? null : asTransitionEntryId(ctx, args.output.parentEntryId)
-  const sharedUpdated =
-    args.entry.slug !== args.output.slug ||
-    args.entry.parentEntryId !== parentEntryId ||
-    args.entry.orderRank !== args.output.orderRank ||
-    args.entry.nodeKind !== args.output.nodeKind ||
-    !isEqualJsonValue(args.entry.shared, args.output.shared)
-  const upsertedLocales = new Set<string>()
-  const removedLocales = new Set<string>()
-  const allLocales = new Set([...Object.keys(drafts.byLocale), ...Object.keys(args.output.locales)])
-
-  for (const locale of allLocales) {
-    const existing = drafts.byLocale[locale]
-    const desired = args.output.locales[locale]
-    if (!desired) {
-      if (existing) {
-        await ctx.db.delete(existing._id)
-        await deleteAssetRefsForSource(
-          ctx,
-          { sourceKind: 'draft', sourceId: `${args.entry._id}:${locale}` },
-          'canonical',
-        )
-        await deleteDraftSearchEntry(ctx, args.entry._id, locale)
-        removedLocales.add(locale)
-      }
-      continue
-    }
-    const changed =
-      !existing ||
-      existing.slug !== desired.slug ||
-      existing.bodyMdc !== desired.bodyMdc ||
-      !isEqualJsonValue(existing.values, desired.values)
-    if (!changed) continue
-    const payload = {
-      entryId: args.entry._id,
-      locale,
-      slug: desired.slug,
-      values: desired.values,
-      bodyMdc: desired.bodyMdc,
-      version: (existing?.version ?? 0) + 1,
-      updatedBy: args.actor,
-      updatedAt: args.now,
-    }
-    if (existing) await ctx.db.replace(existing._id, payload)
-    else await ctx.db.insert('entryLocaleDrafts', payload)
-    upsertedLocales.add(locale)
-  }
-
-  if (!sharedUpdated && upsertedLocales.size === 0 && removedLocales.size === 0) return
-  await ctx.db.patch(args.entry._id, {
-    ...(sharedUpdated
-      ? {
-          slug: args.output.slug,
-          parentEntryId,
-          orderRank: args.output.orderRank,
-          nodeKind: args.output.nodeKind,
-          shared: args.output.shared,
-          sharedVersion: args.entry.sharedVersion + 1,
-        }
-      : {}),
-    draftVersion: args.entry.draftVersion + 1,
-    updatedBy: args.actor,
-    updatedAt: args.now,
-  })
-  await refreshDraftAssetRefsForSave(ctx, {
-    entryId: args.entry._id,
-    collection: args.entry.collection,
-    sharedUpdated,
-    affectedLocales: [...upsertedLocales],
-  })
-  await refreshDraftSearchEntriesForEntry(ctx, args.entry._id, args.collection)
-  for (const locale of removedLocales) {
-    await deleteDraftSearchEntry(ctx, args.entry._id, locale)
-  }
-}
+import { noWritePolicyVersionChangeForRun, noWriteTransitionOutput } from './policyVersionChange.js'
 
 export async function applyContractTransitionPageHandler(
   ctx: MutationCtx,
@@ -129,7 +33,10 @@ export async function applyContractTransitionPageHandler(
   if (run.validatedCount !== run.stagedCount || run.validatedHash !== run.stagedHash) {
     throw new Error('CONTRACT_TRANSITION_NOT_VALIDATED')
   }
-  const { target, affected } = await transitionCollections(ctx, run)
+  const { installed, target, affected } = await transitionCollections(ctx, run)
+  const noWritePolicyChange = Boolean(
+    await noWritePolicyVersionChangeForRun(installed, run, target),
+  )
   const limit = boundedTransitionPageSize(args.limit, TRANSITION_APPLY_PAGE_SIZE_MAX)
   const pending = await ctx.db
     .query('contractTransitionItems')
@@ -142,7 +49,7 @@ export async function applyContractTransitionPageHandler(
     if (!entry || !affected.has(entry.collection)) {
       throw new Error(`Transition entry "${item.entryId}" no longer exists in its scope.`)
     }
-    if (entry.activePublications.length > 0) {
+    if (!noWritePolicyChange && entry.activePublications.length > 0) {
       throw new Error(`Entry "${entry._id}" was published after the transition was staged.`)
     }
     const current = await readTransitionInput(ctx, entry)
@@ -156,23 +63,32 @@ export async function applyContractTransitionPageHandler(
     if ((await hashTransitionValue(output)) !== item.outputHash) {
       throw new Error(`Entry "${entry._id}" has a corrupt staged output.`)
     }
+    if (
+      noWritePolicyChange &&
+      (await hashTransitionValue(output)) !==
+        (await hashTransitionValue(noWriteTransitionOutput(current)))
+    ) {
+      throw new Error(`CONTRACT_TRANSITION_NO_WRITE_OUTPUT_CHANGED: entry "${entry._id}".`)
+    }
     await validateTransitionOutput(ctx, entry, output, target)
     const targetCollection = target.collections[entry.collection]
     if (!targetCollection) {
       throw new Error(`Collection "${entry.collection}" still contains entries.`)
     }
-    await applyTransitionOutput(ctx, {
-      entry,
-      output,
-      collection: projectContentCollection(targetCollection, {
-        contentHash: run.toContentHash,
-        presentation: run.targetPresentation,
-        installedAt: now,
-        installedBy: args.actor,
-      }),
-      actor: args.actor,
-      now,
-    })
+    if (!noWritePolicyChange) {
+      await applyTransitionOutput(ctx, {
+        entry,
+        output,
+        collection: projectContentCollection(targetCollection, {
+          contentHash: run.toContentHash,
+          presentation: run.targetPresentation,
+          installedAt: now,
+          installedBy: args.actor,
+        }),
+        actor: args.actor,
+        now,
+      })
+    }
     await ctx.db.patch(item._id, { state: 'applied', appliedAt: now })
   }
   const appliedCount = run.appliedCount + page.length
@@ -208,7 +124,8 @@ export async function activateContractTransitionHandler(
   ) {
     throw new Error('CONTRACT_TRANSITION_APPLY_INCOMPLETE')
   }
-  const { installed } = await transitionCollections(ctx, run)
+  const { installed, target } = await transitionCollections(ctx, run)
+  await noWritePolicyVersionChangeForRun(installed, run, target)
   const pending = await ctx.db
     .query('contractTransitionItems')
     .withIndex('by_run_state', (query) => query.eq('runId', run._id).eq('state', 'validated'))

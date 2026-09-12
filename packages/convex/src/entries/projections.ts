@@ -262,7 +262,12 @@ async function expectedPublicProjection(
 > {
   const revision = await ctx.db.get(publication.revisionId)
   const snapshot = revision?.snapshots[publication.locale]
-  if (!revision || !snapshot) {
+  if (
+    !revision ||
+    revision.entryId !== entry._id ||
+    revision.collection !== entry.collection ||
+    !snapshot
+  ) {
     return {
       ok: false,
       issue: {
@@ -377,6 +382,47 @@ async function publicDerivedRowsMatch(
       ? !!search && projectionPayloadMatches(search, expectedSearch)
       : search === null)
   )
+}
+
+/** Read-only proof used by no-write contract transitions. It never repairs rows. */
+export async function assertActivePublicationProjectionsMatch(
+  ctx: QueryOrMutationCtx,
+  entry: EntryDoc,
+  collection: CollectionDoc,
+): Promise<void> {
+  for (const publication of entry.activePublications) {
+    if (!collection.locales.includes(publication.locale)) {
+      throw new Error(
+        `CONTRACT_TRANSITION_ACTIVE_LOCALE_INVALID: entry "${entry._id}" locale "${publication.locale}".`,
+      )
+    }
+    const expected = await expectedPublicProjection(ctx, entry, collection, publication)
+    if (!expected.ok)
+      throw new Error(`CONTRACT_TRANSITION_PUBLIC_PROJECTION_INVALID: ${expected.issue.message}`)
+    if (!(await publicDerivedRowsMatch(ctx, expected.built.input))) {
+      throw new Error(
+        `CONTRACT_TRANSITION_PUBLIC_PROJECTION_STALE: entry "${entry._id}" locale "${publication.locale}".`,
+      )
+    }
+    const publicEntry = await ctx.db
+      .query('publicEntries')
+      .withIndex('by_entry_locale', (query) =>
+        query.eq('entryId', entry._id).eq('locale', publication.locale),
+      )
+      .unique()
+    if (!publicEntry || publicEntry.revisionId !== publication.revisionId) {
+      throw new Error(
+        `CONTRACT_TRANSITION_PUBLIC_REVISION_STALE: entry "${entry._id}" locale "${publication.locale}".`,
+      )
+    }
+    if (
+      !(await assetRefSourceMatches(ctx, await publicAssetRefSource(ctx, publicEntry, collection)))
+    ) {
+      throw new Error(
+        `CONTRACT_TRANSITION_PUBLIC_ASSET_REFS_STALE: entry "${entry._id}" locale "${publication.locale}".`,
+      )
+    }
+  }
 }
 
 export async function repairDerivedRowsForEntry(

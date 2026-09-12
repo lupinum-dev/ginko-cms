@@ -2,7 +2,7 @@ import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   validatePublicMarkdownAst,
   type ParseMdcBodyResult,
-  type PortableComponentPolicyV1,
+  type PortableComponentPolicy,
 } from '@lupinum/ginko-content/cms-contract'
 
 import { throwCmsError } from '../../errors.js'
@@ -10,7 +10,7 @@ import type { CmsCollection, QueryOrMutationCtx } from '../../lib/types.js'
 
 type MarkdownRoot = ParseMdcBodyResult['body']
 
-function componentPolicyFor(collection: CmsCollection): PortableComponentPolicyV1 {
+function componentPolicyFor(collection: CmsCollection): PortableComponentPolicy {
   const settings = collection.settings
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
     return { components: {} }
@@ -25,7 +25,7 @@ function componentPolicyFor(collection: CmsCollection): PortableComponentPolicyV
       collection: collection.slug,
     })
   }
-  return policy as unknown as PortableComponentPolicyV1
+  return policy as unknown as PortableComponentPolicy
 }
 
 export async function assertPublicBodySafe(

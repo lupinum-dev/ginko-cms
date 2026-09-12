@@ -106,7 +106,7 @@ export interface ModuleOptions {
 }
 
 /**
- * Resolved exclusively from ResolvedContentContractV1 during module setup.
+ * Resolved exclusively from the discriminated Content contract during module setup.
  *
  * @internal
  */

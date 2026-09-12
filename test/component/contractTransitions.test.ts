@@ -4,15 +4,24 @@ import {
   buildResolvedContentContract,
   hashCanonicalJson,
   type ResolvedContentContractV1,
+  type ResolvedContentContractV2,
 } from '@lupinum/ginko-content/cms-contract'
 import { describe, expect, it } from 'vitest'
 
+import { classifyNoWritePolicyVersionChange } from '../../packages/convex/src/contractTransitions/policyVersionChange'
 import {
   buildDraftSearchPayload,
   deriveDraftSearchEntryState,
 } from '../../packages/convex/src/entries/workflow/draftSearch'
+import {
+  buildPublicProjectionPayload,
+  buildPublicSearchProjectionPayload,
+} from '../../packages/convex/src/entries/workflow/projection'
+import { buildPublicProjectionFromRevisionSnapshot } from '../../packages/convex/src/entries/workflow/projectionBuild'
 import { projectContentCollection } from '../../packages/convex/src/lib/installedContract'
 import { api, createCtx } from '../helpers'
+
+const POLICY_BODY = '::note{tone="info"}\nPolicy-controlled body.\n::'
 
 function contractFixture(path: string, locales = ['en']): ResolvedContentContractV1 {
   return buildResolvedContentContract(
@@ -32,7 +41,64 @@ function contractFixture(path: string, locales = ['en']): ResolvedContentContrac
         },
       },
     },
-    { defaultLocale: locales[0]!, locales },
+    {
+      defaultLocale: locales[0]!,
+      locales,
+      componentPolicy: {
+        components: {
+          note: {
+            kind: 'block',
+            props: { tone: { type: 'string', required: true } },
+            slots: ['default'],
+            media: null,
+          },
+        },
+      },
+    },
+  )
+}
+
+function contractFixtureV2(path: string, locales = ['en']): ResolvedContentContractV2 {
+  return buildResolvedContentContract(
+    {
+      collections: {
+        posts: {
+          type: 'page',
+          source: 'content/posts/**/*.md',
+          route: path,
+          i18n: true,
+          cms: {
+            type: 'flat',
+            fields: {
+              title: { type: 'text', localized: false, searchable: true },
+            },
+          },
+        },
+      },
+    },
+    {
+      defaultLocale: locales[0]!,
+      locales,
+      componentPolicy: {
+        version: 2,
+        components: {
+          note: {
+            kind: 'block',
+            props: {
+              tone: {
+                types: ['string'],
+                required: true,
+                allowedValues: ['info', 'warning'],
+              },
+            },
+            slots: ['default'],
+            allowedParents: null,
+            allowedChildren: null,
+            media: null,
+          },
+        },
+      },
+    },
   )
 }
 
@@ -40,9 +106,15 @@ function presentationFixture(label: string) {
   return { collections: { posts: { label } } }
 }
 
-async function seedTransitionEntry(ctx: ReturnType<typeof createCtx>, locales = ['en']) {
+async function seedTransitionEntry(
+  ctx: ReturnType<typeof createCtx>,
+  locales = ['en'],
+  contract: ResolvedContentContractV1 | ResolvedContentContractV2 = contractFixture(
+    '/posts',
+    locales,
+  ),
+) {
   const now = Date.now()
-  const contract = contractFixture('/posts', locales)
   const contentHash = await hashCanonicalJson(contract)
   const presentation = presentationFixture('Posts')
   const presentationHash = await hashCanonicalJson(presentation)
@@ -82,7 +154,7 @@ async function seedTransitionEntry(ctx: ReturnType<typeof createCtx>, locales = 
       locale,
       slug: null,
       values: {},
-      bodyMdc: '',
+      bodyMdc: POLICY_BODY,
       version: 1,
       updatedBy: 'test',
       updatedAt: now,
@@ -104,6 +176,82 @@ async function seedTransitionEntry(ctx: ReturnType<typeof createCtx>, locales = 
     )
   }
   return { entryId, contract, contentHash, presentation, presentationHash, now }
+}
+
+async function publishSeededTransitionEntry(
+  ctx: ReturnType<typeof createCtx>,
+  seed: Awaited<ReturnType<typeof seedTransitionEntry>>,
+) {
+  const revisionId = await ctx.seed('entryRevisions', {
+    entryId: seed.entryId,
+    collection: 'posts',
+    revisionNumber: 1,
+    operationId: 'publish:policy-version-transition',
+    parentRevisionId: null,
+    kind: 'publish',
+    snapshots: {
+      en: {
+        shared: { title: 'Before' },
+        values: {},
+        bodyMdc: POLICY_BODY,
+        slug: 'hello',
+        parentEntryId: null,
+        orderRank: 'a',
+        sharedVersion: 1,
+        localeVersion: 1,
+      },
+    },
+    affectedLocales: ['en'],
+    contentHash: seed.contentHash,
+    message: null,
+    createdBy: 'test',
+    createdAt: seed.now,
+  })
+  await ctx.raw.run(async (inner) => {
+    const entry = await inner.db.get(seed.entryId as never)
+    if (!entry) throw new Error('Missing transition fixture entry.')
+    const collection = projectContentCollection(seed.contract.collections.posts!, {
+      contentHash: seed.contentHash,
+      presentation: seed.presentation,
+      installedAt: seed.now,
+      installedBy: 'test',
+    })
+    const built = await buildPublicProjectionFromRevisionSnapshot(inner, {
+      entry,
+      collection,
+      revisionId: revisionId as never,
+      locale: 'en',
+      localeSnapshot: {
+        shared: { title: 'Before' },
+        values: {},
+        bodyMdc: POLICY_BODY,
+        slug: 'hello',
+        parentEntryId: null,
+        orderRank: 'a',
+        sharedVersion: 1,
+        localeVersion: 1,
+      },
+      publicPath: '/posts/hello',
+      firstPublishedAt: seed.now,
+      now: seed.now,
+    })
+    await inner.db.patch(seed.entryId as never, {
+      latestEditorialRevisionId: revisionId,
+      activePublications: [
+        {
+          locale: 'en',
+          revisionId,
+          sharedVersion: 1,
+          localeVersion: 1,
+          firstPublishedAt: seed.now,
+          activatedAt: seed.now,
+          activatedBy: 'test',
+        },
+      ],
+    })
+    await inner.db.insert('publicEntries', buildPublicProjectionPayload(built.input))
+    await inner.db.insert('publicSearchEntries', buildPublicSearchProjectionPayload(built.input))
+  })
 }
 
 async function seedAdditionalEntry(ctx: ReturnType<typeof createCtx>, suffix: string) {
@@ -187,6 +335,25 @@ async function beginTransition(
     actor: 'owner-cli',
   })
   return { target, targetContentHash, targetPresentation, targetPresentationHash, run }
+}
+
+async function beginPolicyVersionTransition(
+  ctx: ReturnType<typeof createCtx>,
+  target: ResolvedContentContractV1 | ResolvedContentContractV2,
+  runKey: string,
+) {
+  const targetContentHash = await hashCanonicalJson(target)
+  const targetPresentation = presentationFixture('Posts')
+  const targetPresentationHash = await hashCanonicalJson(targetPresentation)
+  const run = await ctx.raw.mutation(api.contractTransitions.beginContractTransition, {
+    runKey,
+    targetContent: target,
+    targetContentHash,
+    targetPresentation,
+    targetPresentationHash,
+    actor: 'owner-cli',
+  })
+  return { targetContentHash, run }
 }
 
 async function stageCurrentPage(
@@ -934,6 +1101,230 @@ describe('bounded canonical contract transitions', () => {
     expect(await ctx.readAll('cmsContract')).toEqual([
       expect.objectContaining({ transitionState: 'locked', transitionRunId: String(run.runId) }),
     ])
+  })
+
+  it('activates an exact V1-to-V2 policy transition while preserving active public state', async () => {
+    const ctx = createCtx()
+    const seed = await seedTransitionEntry(ctx)
+    await publishSeededTransitionEntry(ctx, seed)
+    const publicBefore = structuredClone(await ctx.readAll('publicEntries'))
+    const searchBefore = structuredClone(await ctx.readAll('publicSearchEntries'))
+    const entriesBefore = structuredClone(await ctx.readAll('entries'))
+    const draftsBefore = structuredClone(await ctx.readAll('entryLocaleDrafts'))
+
+    const { run, targetContentHash } = await beginPolicyVersionTransition(
+      ctx,
+      contractFixtureV2('/posts'),
+      'policy-v1-to-v2',
+    )
+    await stageCurrentPage(ctx, run.runId)
+    await expect(applyNextPage(ctx, run.runId, 1)).resolves.toMatchObject({
+      appliedCount: 1,
+      readyToActivate: true,
+    })
+    await expect(activateTransition(ctx, run.runId)).resolves.toMatchObject({ state: 'complete' })
+
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBefore)
+    expect(await ctx.readAll('publicSearchEntries')).toEqual(searchBefore)
+    expect(await ctx.readAll('entries')).toEqual(entriesBefore)
+    expect(await ctx.readAll('entryLocaleDrafts')).toEqual(draftsBefore)
+    expect(await ctx.readAll('cmsContract')).toEqual([
+      expect.objectContaining({
+        contentHash: targetContentHash,
+        content: expect.objectContaining({ version: 2 }),
+        transitionState: 'ready',
+        transitionRunId: null,
+      }),
+    ])
+  })
+
+  it('cancels a multi-page applying no-write transition without changing canonical rows', async () => {
+    const ctx = createCtx()
+    const seed = await seedTransitionEntry(ctx)
+    await publishSeededTransitionEntry(ctx, seed)
+    await seedAdditionalEntry(ctx, '2')
+    await seedAdditionalEntry(ctx, '3')
+    const canonicalBefore = {
+      entries: structuredClone(await ctx.readAll('entries')),
+      drafts: structuredClone(await ctx.readAll('entryLocaleDrafts')),
+      revisions: structuredClone(await ctx.readAll('entryRevisions')),
+      publicEntries: structuredClone(await ctx.readAll('publicEntries')),
+      publicSearch: structuredClone(await ctx.readAll('publicSearchEntries')),
+      draftSearch: structuredClone(await ctx.readAll('draftSearchEntries')),
+    }
+
+    const { run } = await beginPolicyVersionTransition(
+      ctx,
+      contractFixtureV2('/posts'),
+      'policy-v1-to-v2-cancel',
+    )
+    let cursor: string | null = null
+    for (;;) {
+      const page = await stageListedPage(ctx, run.runId, cursor, 1)
+      if (page.listed.isDone) break
+      cursor = page.staged.continueCursor
+    }
+    await validateAllPages(ctx, run.runId, 1)
+    await expect(applyNextPage(ctx, run.runId, 1)).resolves.toMatchObject({ appliedCount: 1 })
+    await expect(applyNextPage(ctx, run.runId, 1)).resolves.toMatchObject({
+      appliedCount: 2,
+      readyToActivate: false,
+    })
+    await expect(
+      ctx.raw.mutation(api.contractTransitions.cancelContractTransition, { runId: run.runId }),
+    ).resolves.toEqual({ state: 'cancelled' })
+
+    expect(await ctx.readAll('entries')).toEqual(canonicalBefore.entries)
+    expect(await ctx.readAll('entryLocaleDrafts')).toEqual(canonicalBefore.drafts)
+    expect(await ctx.readAll('entryRevisions')).toEqual(canonicalBefore.revisions)
+    expect(await ctx.readAll('publicEntries')).toEqual(canonicalBefore.publicEntries)
+    expect(await ctx.readAll('publicSearchEntries')).toEqual(canonicalBefore.publicSearch)
+    expect(await ctx.readAll('draftSearchEntries')).toEqual(canonicalBefore.draftSearch)
+    expect(await ctx.readAll('cmsContract')).toEqual([
+      expect.objectContaining({
+        contentHash: seed.contentHash,
+        content: expect.objectContaining({ version: 1 }),
+        transitionState: 'ready',
+        transitionRunId: null,
+      }),
+    ])
+  })
+
+  it('supports the reverse V2-to-V1 no-write transition for active publications', async () => {
+    const ctx = createCtx()
+    const seed = await seedTransitionEntry(ctx, ['en'], contractFixtureV2('/posts'))
+    await publishSeededTransitionEntry(ctx, seed)
+    const publicBefore = structuredClone(await ctx.readAll('publicEntries'))
+    const { run } = await beginPolicyVersionTransition(
+      ctx,
+      contractFixture('/posts'),
+      'policy-v2-to-v1',
+    )
+    await stageCurrentPage(ctx, run.runId)
+    await applyNextPage(ctx, run.runId, 1)
+    await activateTransition(ctx, run.runId)
+
+    expect(await ctx.readAll('publicEntries')).toEqual(publicBefore)
+    expect(await ctx.readAll('cmsContract')).toEqual([
+      expect.objectContaining({ content: expect.objectContaining({ version: 1 }) }),
+    ])
+  })
+
+  it('rejects a no-write transition when an active public projection is stale', async () => {
+    const ctx = createCtx()
+    const seed = await seedTransitionEntry(ctx)
+    await publishSeededTransitionEntry(ctx, seed)
+    await ctx.raw.run(async (inner) => {
+      const publicEntry = (await inner.db.query('publicEntries').collect())[0]!
+      await inner.db.patch(publicEntry._id, { title: 'Stale projection' })
+    })
+    const { run } = await beginPolicyVersionTransition(
+      ctx,
+      contractFixtureV2('/posts'),
+      'policy-v1-to-v2-stale-public',
+    )
+    await expect(stageCurrentPage(ctx, run.runId)).rejects.toThrow(/public_projection_stale/i)
+  })
+
+  it('rejects a no-write transition when an active revision snapshot violates the target policy', async () => {
+    const ctx = createCtx()
+    const seed = await seedTransitionEntry(ctx)
+    await publishSeededTransitionEntry(ctx, seed)
+    await ctx.raw.run(async (inner) => {
+      const revision = (await inner.db.query('entryRevisions').collect())[0]!
+      await inner.db.patch(revision._id, {
+        snapshots: {
+          ...revision.snapshots,
+          en: {
+            ...revision.snapshots.en!,
+            bodyMdc: '::note{tone="other"}\nInvalid active snapshot.\n::',
+          },
+        },
+      })
+    })
+    const { run } = await beginPolicyVersionTransition(
+      ctx,
+      contractFixtureV2('/posts'),
+      'policy-v1-to-v2-invalid-active',
+    )
+
+    await expect(stageCurrentPage(ctx, run.runId)).rejects.toThrow(/invalid_prop_value/i)
+  })
+
+  it('rejects changed staged source during a no-write transition', async () => {
+    const ctx = createCtx()
+    const seed = await seedTransitionEntry(ctx)
+    await publishSeededTransitionEntry(ctx, seed)
+    const { run } = await beginPolicyVersionTransition(
+      ctx,
+      contractFixtureV2('/posts'),
+      'policy-v1-to-v2-stale-source',
+    )
+    await stageCurrentPage(ctx, run.runId)
+    await ctx.raw.run(async (inner) => {
+      await inner.db.patch(seed.entryId as never, { draftVersion: 2 })
+    })
+
+    await expect(applyNextPage(ctx, run.runId, 1)).rejects.toThrow(
+      /changed after transition staging/i,
+    )
+  })
+
+  it('does not classify an incompatible component type change as no-write', async () => {
+    const current = buildResolvedContentContract(
+      {
+        collections: {
+          posts: {
+            type: 'page',
+            source: 'content/posts/**/*.md',
+            cms: { type: 'flat', fields: {} },
+          },
+        },
+      },
+      {
+        defaultLocale: 'en',
+        locales: ['en'],
+        componentPolicy: {
+          components: {
+            callout: {
+              kind: 'block',
+              props: { tone: { type: 'string', required: false } },
+              slots: [],
+              media: null,
+            },
+          },
+        },
+      },
+    )
+    const target = buildResolvedContentContract(
+      {
+        collections: {
+          posts: {
+            type: 'page',
+            source: 'content/posts/**/*.md',
+            cms: { type: 'flat', fields: {} },
+          },
+        },
+      },
+      {
+        defaultLocale: 'en',
+        locales: ['en'],
+        componentPolicy: {
+          version: 2,
+          components: {
+            callout: {
+              kind: 'block',
+              props: { tone: { types: ['number'], required: false, allowedValues: null } },
+              slots: [],
+              allowedParents: null,
+              allowedChildren: null,
+              media: null,
+            },
+          },
+        },
+      },
+    )
+    await expect(classifyNoWritePolicyVersionChange(current, target)).resolves.toBeNull()
   })
 
   it('permits cancellation before apply and rejects cancellation after the first applied page', async () => {

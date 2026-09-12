@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type {
-  ResolvedContentCollectionV1,
-  ResolvedContentContractV1,
+  ResolvedContentCollection,
+  ResolvedContentContract,
   ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import { readResolvedContentContract } from '@lupinum/ginko-content/cms-contract/node'
@@ -33,7 +33,7 @@ async function loadContentConfig(rootDir: string): Promise<ContentConfigLike> {
 
 export async function loadGinkoContentContract(options: {
   rootDir: string
-}): Promise<ResolvedContentContractV1> {
+}): Promise<ResolvedContentContract> {
   return (await readResolvedContentContract({ root: options.rootDir })).contract
 }
 
@@ -99,7 +99,7 @@ function fieldFromContract(
   }
 }
 
-function collectionSettings(collection: ResolvedContentCollectionV1): JsonValue {
+function collectionSettings(collection: ResolvedContentCollection): JsonValue {
   return {
     defaultLocale: collection.defaultLocale,
     localizedPathPrefixes: collection.routing.localizedPathPrefixes,
@@ -111,7 +111,7 @@ function collectionSettings(collection: ResolvedContentCollectionV1): JsonValue 
 }
 
 export function projectContractCollections(
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   layout?: CmsEditorialLayout,
 ): Record<string, CollectionConfig> {
   validateEditorialLayout(contract, layout)
@@ -143,7 +143,7 @@ export function projectContractCollections(
 }
 
 function validateEditorialLayout(
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   layout: CmsEditorialLayout | undefined,
 ): void {
   if (!layout) return

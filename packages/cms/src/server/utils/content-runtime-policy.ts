@@ -1,7 +1,7 @@
-import type { ResolvedContentContractV1 } from '@lupinum/ginko-content/cms-contract'
+import type { ResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 
 type ContentRuntimePolicy = {
-  contract?: ResolvedContentContractV1
+  contract?: ResolvedContentContract
   defaultLocale?: string
   locales?: string[]
 }

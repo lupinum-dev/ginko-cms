@@ -2,6 +2,8 @@ import { CMS_TREE_MAX_DEPTH } from '@lupinum/ginko-cms-contract/shared/placement
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../_generated/dataModel.js'
+import { assertActivePublicationProjectionsMatch } from '../entries/projections.js'
+import { projectContentCollection } from '../lib/installedContract.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../lib/types.js'
 import {
   asTransitionEntryId,
@@ -16,6 +18,7 @@ import {
   type TransitionRouteClaim,
   validateTransitionOutput,
 } from './model.js'
+import { noWritePolicyVersionChangeForRun, noWriteTransitionOutput } from './policyVersionChange.js'
 
 function persistedClaims(claims: Doc<'contractTransitionRouteClaims'>[]): TransitionRouteClaim[] {
   return claims
@@ -73,7 +76,9 @@ async function validateStagedItem(
   run: Doc<'contractTransitionRuns'>,
   item: Doc<'contractTransitionItems'>,
   target: Awaited<ReturnType<typeof transitionCollections>>['target'],
+  installed: Awaited<ReturnType<typeof transitionCollections>>['installed'],
   affected: Set<string>,
+  noWritePolicyChange: boolean,
 ): Promise<void> {
   if (item.state !== 'staged') {
     throw new Error(`Transition item "${item.entryId}" was already validated.`)
@@ -82,7 +87,7 @@ async function validateStagedItem(
   if (!entry || !affected.has(entry.collection) || entry.collection !== item.collection) {
     throw new Error('CONTRACT_TRANSITION_STAGED_ENTRY_SET_CHANGED')
   }
-  if (entry.activePublications.length > 0) {
+  if (!noWritePolicyChange && entry.activePublications.length > 0) {
     throw new Error(
       `CONTRACT_TRANSITION_REQUIRES_UNPUBLISH: entry "${entry._id}" still has active publications.`,
     )
@@ -98,7 +103,28 @@ async function validateStagedItem(
   if ((await hashTransitionValue(output)) !== item.outputHash) {
     throw new Error(`Entry "${entry._id}" has a corrupt staged output.`)
   }
+  if (
+    noWritePolicyChange &&
+    (await hashTransitionValue(output)) !==
+      (await hashTransitionValue(noWriteTransitionOutput(current)))
+  ) {
+    throw new Error(`CONTRACT_TRANSITION_NO_WRITE_OUTPUT_CHANGED: entry "${entry._id}".`)
+  }
   await validateTransitionOutput(ctx, entry, output, target)
+  if (noWritePolicyChange && entry.activePublications.length > 0) {
+    const targetCollection = target.collections[entry.collection]
+    if (!targetCollection) throw new Error('CONTRACT_TRANSITION_COLLECTION_REMOVED')
+    await assertActivePublicationProjectionsMatch(
+      ctx,
+      entry,
+      projectContentCollection(targetCollection, {
+        contentHash: run.toContentHash,
+        presentation: run.targetPresentation,
+        installedAt: installed.record.installedAt,
+        installedBy: installed.record.installedBy,
+      }),
+    )
+  }
   const expectedParent =
     output.parentEntryId === null ? null : asTransitionEntryId(ctx, output.parentEntryId)
   if (expectedParent !== item.parentEntryId) {
@@ -183,7 +209,10 @@ export async function validateContractTransitionPageHandler(
   if (run.state !== 'validating') throw new Error('CONTRACT_TRANSITION_NOT_VALIDATING')
   if (run.generation !== args.generation) throw new Error('CONTRACT_TRANSITION_STALE_GENERATION')
   if (run.cursor !== args.cursor) throw new Error('CONTRACT_TRANSITION_STALE_CURSOR')
-  const { target, affected } = await transitionCollections(ctx, run)
+  const { installed, target, affected } = await transitionCollections(ctx, run)
+  const noWritePolicyChange = Boolean(
+    await noWritePolicyVersionChangeForRun(installed, run, target),
+  )
   const limit = boundedTransitionPageSize(args.limit)
   const cursor = parseValidationCursor(args.cursor, run._id)
   const candidates = await ctx.db
@@ -210,7 +239,7 @@ export async function validateContractTransitionPageHandler(
   let validatedHash = run.validatedHash
   const now = Date.now()
   for (const item of page) {
-    await validateStagedItem(ctx, run, item, target, affected)
+    await validateStagedItem(ctx, run, item, target, installed, affected, noWritePolicyChange)
     validatedHash = await rollTransitionHash(validatedHash, [
       {
         entryId: String(item.entryId),

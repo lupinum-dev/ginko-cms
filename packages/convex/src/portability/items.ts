@@ -1,8 +1,8 @@
 import { portableSharedDraftState } from '@lupinum/ginko-cms-contract/shared/placementGraph.js'
 import type { CmsField, JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type {
-  ResolvedContentCollectionV1,
-  ResolvedContentContractV1,
+  ResolvedContentCollection,
+  ResolvedContentContract,
   ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import {
@@ -29,7 +29,7 @@ import { hashPortableDocument } from './portableJson.js'
 async function activeContract(
   ctx: QueryOrMutationCtx,
   options: { requireWritable?: boolean; expectedContentHash?: string } = {},
-): Promise<ResolvedContentContractV1> {
+): Promise<ResolvedContentContract> {
   const installed = await readInstalledCmsContract(ctx)
   if (!installed) throw new Error('Portable import requires an installed CMS contract.')
   if (options.requireWritable && installed.record.transitionState !== 'ready') {
@@ -188,7 +188,7 @@ async function rewritePortableBodyAssets(
   ctx: MutationCtx,
   runId: string,
   source: string,
-  policy: ResolvedContentContractV1['collections'][string]['componentPolicy'],
+  policy: ResolvedContentContract['collections'][string]['componentPolicy'],
 ) {
   const assetIdBySha256 = new Map<string, string>()
   for (const reference of await collectPortableMdcAssetReferences(source, policy)) {
@@ -281,7 +281,7 @@ async function portableFields(
 
 async function portableBody(
   ctx: QueryOrMutationCtx,
-  collection: ResolvedContentCollectionV1,
+  collection: ResolvedContentCollection,
   source: string,
 ): Promise<PortableDocumentV1['body']> {
   if (collection.portable.format !== 'mdc') return null
@@ -336,7 +336,7 @@ async function currentPortableDocument(
   ctx: QueryOrMutationCtx,
   entryId: Id<'entries'>,
   locale: string,
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
 ): Promise<PortableDocumentV1 | null> {
   const entry = await ctx.db.get(entryId)
   if (!entry) return null
@@ -393,7 +393,7 @@ export async function portablePublishedDocument(
     collection: string
     canonicalKey: string
     locale: string
-    contract: ResolvedContentContractV1
+    contract: ResolvedContentContract
   },
 ): Promise<PortableDocumentV1> {
   const revision = await ctx.db.get(input.revisionId)
@@ -445,7 +445,7 @@ export async function portablePublishedDocument(
 async function currentPortableSharedSha256(
   ctx: QueryOrMutationCtx,
   entry: Doc<'entries'>,
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
 ): Promise<string> {
   const collection = contract.collections[entry.collection]
   if (!collection) throw new Error(`Portable collection "${entry.collection}" is not installed.`)

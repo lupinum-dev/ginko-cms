@@ -15,6 +15,7 @@ import {
   requireTransitionRun,
   targetContractForRun,
 } from './model.js'
+import { noWritePolicyVersionChangeForRun } from './policyVersionChange.js'
 
 export async function beginContractTransitionHandler(
   ctx: MutationCtx,
@@ -113,13 +114,17 @@ export async function cancelContractTransitionHandler(
   args: { runId: Id<'contractTransitionRuns'> },
 ) {
   const run = await requireTransitionRun(ctx, args.runId)
-  if (run.state !== 'staging' && run.state !== 'validating' && run.state !== 'ready') {
-    throw new Error('A contract transition can only be cancelled before apply begins.')
-  }
-  if (run.appliedCount !== 0) {
+  const cancellableBeforeApply =
+    run.state === 'staging' || run.state === 'validating' || run.state === 'ready'
+  if (!cancellableBeforeApply && run.state !== 'applying') {
     throw new Error('A contract transition can only be cancelled before apply begins.')
   }
   const installed = await requireLockedContractForRun(ctx, run)
+  const target = await targetContractForRun(run)
+  const noWritePolicyChange = await noWritePolicyVersionChangeForRun(installed, run, target)
+  if (run.state === 'applying' && !noWritePolicyChange) {
+    throw new Error('A contract transition can only be cancelled before apply begins.')
+  }
   const now = Date.now()
   await ctx.db.patch(installed.record._id, {
     writeGeneration: installed.record.writeGeneration + 1,

@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import { PORTABLE_IMPORT_LIMITS } from '@lupinum/ginko-cms-contract/convex/schemas/portability.js'
-import type { JsonValue, ResolvedContentContractV1 } from '@lupinum/ginko-content/cms-contract'
+import type { JsonValue, ResolvedContentContract } from '@lupinum/ginko-content/cms-contract'
 import { hashCanonicalJson, type PortableDocumentV1 } from '@lupinum/ginko-content/portability'
 import {
   writePortableDirectory,
@@ -36,7 +36,7 @@ export type PreparedPortableDraftImport = PortableDraftImportPlan & {
 export type PortablePublishedExportOptions = {
   deploymentId: string
   collections: string[]
-  contract: ResolvedContentContractV1
+  contract: ResolvedContentContract
   assetTransfer: PortableAssetTransferOptions
   runId?: string
 }
