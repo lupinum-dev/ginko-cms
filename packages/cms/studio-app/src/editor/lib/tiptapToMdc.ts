@@ -1,7 +1,7 @@
 import type { JSONContent } from '@tiptap/vue-3'
 import Slugger from 'github-slugger'
 
-import type { JsonRecord } from '../types'
+import type { JsonRecord, JsonValue } from '../types'
 import { validateTiptapDocShape } from './conversionInvariants'
 import { isDebugEnabled, editorDebug } from './debug'
 import { getEmojiUnicode } from './emoji'
@@ -154,7 +154,7 @@ function createParagraphElementWrapper(node: JSONContent, context: TiptapToMDCCo
 
 function createSlotElement(node: JSONContent, context: TiptapToMDCContext): MDCElement {
   const slotName = node.attrs?.name || 'default'
-  return createElement(node, context, 'template', { props: { slotName } })
+  return createElement(node, context, 'template', { props: { name: slotName } })
 }
 
 function createSpanStyleElement(node: JSONContent, context: TiptapToMDCContext): MDCElement {
@@ -353,7 +353,7 @@ function createElement(
 export function createParagraphElement(
   node: JSONContent,
   context: TiptapToMDCContext,
-  propsArray: string[][],
+  propsArray: Array<[string, JsonValue]>,
   rest: object = {},
 ): MDCElement {
   type MarkInfo = null | { attrs?: JsonRecord; type: string }
@@ -467,7 +467,6 @@ function createCodeBlockElement(node: JSONContent, context: TiptapToMDCContext):
   const language = node.attrs?.language || ''
   const filename = node.attrs?.filename
 
-  mdcNode.props!.code = code
   mdcNode.props!.language = language
   if (filename) {
     mdcNode.props!.filename = filename

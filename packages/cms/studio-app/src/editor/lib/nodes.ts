@@ -278,7 +278,7 @@ export function createTemplateNode(
   ) => JSONContent,
 ): JSONContent {
   const props = node.props || {}
-  const name = (props.slotName as string) || 'default'
+  const name = (props.name as string) || (props.slotName as string) || 'default'
 
   if (node.children?.[0]?.type === 'text') {
     node.children = [
@@ -292,34 +292,4 @@ export function createTemplateNode(
   }
 
   return createTipTapNodeFn(node, 'slot', { attrs: { name } })
-}
-
-/**
- * Wraps non-slot children within a default slot
- */
-export function wrapChildrenWithinSlot(children: MDCElement[]): MDCElement[] {
-  const noneSlotChildren = children.filter((child) => child.tag !== 'template')
-  if (noneSlotChildren.length) {
-    const filteredChildren = children.filter((child) => child.tag === 'template')
-
-    let defaultSlot = filteredChildren.find(
-      (child) => child.props?.slotName === 'default',
-    ) as MDCElement
-    if (!defaultSlot) {
-      defaultSlot = {
-        children: [],
-        props: {
-          slotName: 'default',
-        },
-        tag: 'template',
-        type: 'element',
-      }
-      filteredChildren.unshift(defaultSlot)
-    }
-
-    defaultSlot.children = [...(defaultSlot.children || []), ...noneSlotChildren]
-    return filteredChildren
-  }
-
-  return children
 }

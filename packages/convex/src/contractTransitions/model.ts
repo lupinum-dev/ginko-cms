@@ -378,6 +378,6 @@ export async function validateTransitionOutput(
       publish: false,
     })
     assertMdcBodyWithinLimit(value.bodyMdc, { locale, field: 'bodyMdc' })
-    await parseMdcBody(value.bodyMdc)
+    await parseMdcBody(value.bodyMdc, { autoClose: false })
   }
 }

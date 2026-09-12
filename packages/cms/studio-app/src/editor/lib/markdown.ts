@@ -1,6 +1,4 @@
-import { parse } from 'comark'
-import type { ComarkNode, ComarkTree } from 'comark'
-import { renderMarkdown } from 'comark/render'
+import { parseMdcDocument, serializeMdcDocument } from '@lupinum/ginko-content/cms-contract'
 
 import type { JsonRecord, JsonValue } from '../types'
 import { editorDebug } from './debug'
@@ -20,6 +18,7 @@ export interface StringifyMdcOptions {
 
 type ComarkElementNode = [string, Record<string, unknown>, ...ComarkNode[]]
 type ComarkCommentNode = [null, Record<string, unknown>, string]
+type ComarkNode = string | ComarkElementNode | ComarkCommentNode
 
 const TABLE_SECTION_TAGS = new Set(['thead', 'tbody', 'tfoot'])
 const STANDARD_TAGS = new Set([
@@ -72,7 +71,7 @@ export async function parseMdc(content: string, options: ParseMdcOptions = {}): 
       preview: content.slice(0, 200),
     })
 
-    const tree = await parse(content, { autoClose: options.strict === false })
+    const tree = await parseMdcDocument(content, { autoClose: options.strict === false })
     const root = {
       children: comarkNodesToMdc(tree.nodes),
       type: 'root',
@@ -118,8 +117,8 @@ export async function stringifyMdc(
       frontmatter: {},
       meta: {},
       nodes: mdcNodesToComark(cleaned.children || [], options),
-    } satisfies ComarkTree
-    const markdown = await renderMarkdown(tree)
+    }
+    const markdown = await serializeMdcDocument(tree)
     if (!markdown.trim()) return ''
     return markdown.endsWith('\n') ? markdown : `${markdown}\n`
   } catch (error) {
@@ -213,7 +212,7 @@ function textToMdcNodes(value: string): MDCNode[] {
 function cleanComarkProps(rawProps: Record<string, unknown> = {}): JsonRecord {
   const props: JsonRecord = {}
   for (const [key, value] of Object.entries(rawProps)) {
-    if (key === '$' || value === undefined) {
+    if (value === undefined) {
       continue
     }
     props[key] = value as JsonValue

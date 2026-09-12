@@ -119,7 +119,7 @@ export const getDraftPreview = callerQuery.protected({
     // Same parse + render-safety gate as the publish projection. A body that
     // cannot render publicly fails the preview instead of showing stale or
     // partial output.
-    const parsed = await parseMdcBody(localeRow?.bodyMdc ?? '')
+    const parsed = await parseMdcBody(localeRow?.bodyMdc ?? '', { autoClose: false })
     await assertPublicBodySafe(ctx, parsed.body, collection)
 
     return {

@@ -1,0 +1,13 @@
+<!-- before -->
+
+<Info :disabled="false" :count="3" label="false" :options='{"mode":"safe"}'>
+Default **Markdown**.
+
+<template #actions>
+[Open](/guide)
+</template>
+</Info>
+
+Text <Badge featured>inline **Markdown**</Badge>.
+
+<!-- after -->

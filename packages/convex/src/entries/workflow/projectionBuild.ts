@@ -115,7 +115,7 @@ async function projectionBodyFromSnapshot(
   localeSnapshot: RevisionLocaleSnapshot,
   collection: CmsCollection,
 ): Promise<{ bodyAst: MarkdownRoot; searchText: string; toc: Toc | null }> {
-  const parsed = await parseMdcBody(localeSnapshot.bodyMdc ?? '')
+  const parsed = await parseMdcBody(localeSnapshot.bodyMdc ?? '', { autoClose: false })
   await assertPublicBodySafe(ctx, parsed.body, collection)
   return {
     bodyAst: parsed.body,

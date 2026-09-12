@@ -264,7 +264,7 @@ export async function buildDraftSnapshots(
     if (isRouteBackedCollection(collection)) assertValidSlug(slug)
     const merged = materializeFieldData(collection.fields, entry.shared, row.values)
     assertFieldDataValid(collection.fields, merged, { publish: parseBody })
-    if (parseBody) await parseMdcBody(row.bodyMdc)
+    if (parseBody) await parseMdcBody(row.bodyMdc, { autoClose: false })
     snapshots[locale] = {
       shared: entry.shared,
       values: row.values,

@@ -1,3 +1,5 @@
+import type { JsonValue } from '../types'
+
 export function isValidAttr(value?: null | string) {
   if (!value) {
     return false
@@ -48,16 +50,16 @@ export function cleanSpanProps(attrs?: Record<string, unknown> | null) {
 export function normalizeProps(
   nodeProps: Record<string, unknown>,
   extraProps: object,
-): Array<[string, string]> {
+): Array<[string, JsonValue]> {
   return Object.entries({ ...nodeProps, ...extraProps })
     .map(([key, value]) => {
       if (key === 'className') {
         return [
           'class',
           typeof value === 'string' ? value : (value as Array<string>).join(' '),
-        ] as [string, string]
+        ] as [string, JsonValue]
       }
-      return [key.trim(), String(value).trim()] as [string, string]
+      return [key.trim(), value as JsonValue] as [string, JsonValue]
     })
     .filter(([key]) => Boolean(String(key).trim()))
 }

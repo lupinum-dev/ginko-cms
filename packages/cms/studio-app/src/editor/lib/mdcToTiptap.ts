@@ -46,7 +46,6 @@ import {
   createSpanStyleNode,
   createTableCellNode,
   createTemplateNode,
-  wrapChildrenWithinSlot,
 } from './nodes'
 import { isValidAttr } from './props'
 import { stripStyleNodes } from './stripStyleNodes'
@@ -295,9 +294,7 @@ export function mdcNodeToTiptap(
     }
   }
 
-  const children = wrapChildrenWithinSlot(((node as MDCElement).children || []) as MDCElement[])
-
-  return createTipTapNode(node as MDCElement, 'element', { attrs: { tag: type }, children })
+  return createTipTapNode(node as MDCElement, 'element', { attrs: { tag: type } })
 }
 
 /**
