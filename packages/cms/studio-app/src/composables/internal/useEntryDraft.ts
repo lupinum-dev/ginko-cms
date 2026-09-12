@@ -102,6 +102,12 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   }))
 
   const assetContext = computed(() => ({
+    authoringSource:
+      collectionConfig.value?.settings &&
+      typeof collectionConfig.value.settings === 'object' &&
+      !Array.isArray(collectionConfig.value.settings)
+        ? collectionConfig.value.settings.authoring
+        : undefined,
     collection: collection.value,
     locale: currentLocale.value,
     entryId: entryId.value,

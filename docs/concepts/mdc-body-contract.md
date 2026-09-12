@@ -33,12 +33,11 @@ Filesystem content already uses Markdown/MDC as the natural authoring format.
 Making MDC canonical keeps portability, editing, public rendering, and later
 editor changes aligned.
 
-Studio has an MDC workflow:
+Studio uses the shared Ginko Editor MDC workflow:
 
-- `packages/cms/studio-app/src/editor/lib/markdown.ts`
-- `packages/cms/studio-app/src/editor/lib/mdcToTiptap.ts`
-- `packages/cms/studio-app/src/editor/lib/tiptapToMdc.ts`
-- conversion tests under `test/runtime/editor/`
+- `@lupinum/ginko-editor` owns Markdown/MDC conversion and visual editing.
+- `FieldRichtext.vue` owns CMS assets, permissions, draft values, and metadata dialogs.
+- Conversion and lifecycle regressions live in the Editor repository; CMS keeps host-adapter tests.
 
 ## Storage And Projection Model
 

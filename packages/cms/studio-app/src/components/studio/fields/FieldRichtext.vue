@@ -1,23 +1,30 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import {
+  createAuthoringKit,
+  type AssetProvider,
+  type AuthoringKitSourceV1,
+  type AuthoringKitV1,
+  type EditorAssetRequest,
+  type AssetInfo,
+  GinkoEditor as RichtextEditor,
+} from '@lupinum/ginko-editor'
+
+import '@lupinum/ginko-editor/style.css'
+import { computed, ref, shallowRef, toRaw, watch } from 'vue'
 
 import { api } from '../../../boundary/api'
-import type { StudioAssetRecord } from '../../../composables/internal/types'
+import type { StudioAssetContext, StudioAssetRecord } from '../../../composables/internal/types'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
-import type { AssetProvider } from '../../../editor/types'
-import type RichtextEditorComponent from '../../../editor/ui/Editor.vue'
 import StudioAssetMetadataDialog from '../StudioAssetMetadataDialog.vue'
 import StudioAssetPicker from '../StudioAssetPicker.vue'
 import { mapStudioAssetToFileInfo, mapStudioAssetToImageInfo } from './richtextAssetMapping'
-import type { FieldContext, FieldDefinition } from './useFieldCommon'
-
-const RichtextEditor = defineAsyncComponent(() => import('../../../editor/ui/Editor.vue'))
+import type { FieldDefinition } from './useFieldCommon'
 
 const props = defineProps<{
   field: FieldDefinition
   modelValue: unknown
-  assetContext?: FieldContext
+  assetContext?: StudioAssetContext
   label: string
   fieldError: string | null
   disabled?: boolean
@@ -43,7 +50,11 @@ const imagePickerAssetId = ref<string | null>(null)
 const metadataDialogOpen = ref(false)
 const metadataAssetId = ref<string | null>(null)
 const filePickerOpen = ref(false)
-const editorRef = ref<InstanceType<typeof RichtextEditorComponent> | null>(null)
+const authoringKit = shallowRef<AuthoringKitV1>()
+const authoringPending = ref(Boolean(props.assetContext?.authoringSource))
+let authoringRevision = 0
+let pendingImageRequest: EditorAssetRequest<Partial<AssetInfo>> | undefined
+let pendingFileRequest: EditorAssetRequest<Partial<AssetInfo>> | undefined
 const maxResolvedAssetIds = 200
 
 const referencedAssetIds = computed<string[]>((previous) => {
@@ -79,6 +90,7 @@ const assetUrlsQuery = useCmsStudioQuery(
 const editorEverReady = ref(false)
 const editorReady = computed(() => {
   if (editorEverReady.value) return true
+  if (authoringPending.value) return false
   if (!props.assetContext) return true
   if (referencedAssetIds.value.length === 0) return true
   const status = assetUrlsQuery.status?.value
@@ -124,11 +136,34 @@ const assetProvider: AssetProvider = {
   },
 }
 
+watch(
+  () => props.assetContext?.authoringSource,
+  async (source) => {
+    const revision = ++authoringRevision
+    authoringKit.value = undefined
+    authoringPending.value = Boolean(source)
+    if (!source) return
+    try {
+      const clone = structuredClone(toRaw(source)) as unknown as AuthoringKitSourceV1
+      const resolved = await createAuthoringKit(clone)
+      if (revision === authoringRevision) authoringKit.value = resolved
+    } catch (error) {
+      if (import.meta.dev) {
+        console.debug('[ginko-cms] ignored invalid collection authoring metadata', error)
+      }
+    } finally {
+      if (revision === authoringRevision) authoringPending.value = false
+    }
+  },
+  { immediate: true },
+)
+
 function selectImageAsset(asset: StudioAssetRecord) {
   if (props.disabled) return
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
-  editorRef.value?.insertImageAsset(mapStudioAssetToImageInfo(asset, locale))
+  pendingImageRequest?.complete(mapStudioAssetToImageInfo(asset, locale))
+  pendingImageRequest = undefined
   imagePickerOpen.value = false
   imagePickerAssetId.value = null
 }
@@ -137,13 +172,16 @@ function selectFileAsset(asset: StudioAssetRecord) {
   if (props.disabled) return
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
-  editorRef.value?.insertFileAsset(mapStudioAssetToFileInfo(asset, locale))
+  pendingFileRequest?.complete(mapStudioAssetToFileInfo(asset, locale))
+  pendingFileRequest = undefined
   filePickerOpen.value = false
 }
 
-function openImagePicker(assetId?: string) {
+function openImagePicker(request: EditorAssetRequest<Partial<AssetInfo>>) {
   if (props.disabled) return
-  imagePickerAssetId.value = assetId || null
+  pendingImageRequest?.complete(null)
+  pendingImageRequest = request
+  imagePickerAssetId.value = null
   imagePickerOpen.value = true
 }
 
@@ -160,7 +198,26 @@ function setMetadataDialogOpen(open: boolean) {
 
 function setImagePickerOpen(open: boolean) {
   imagePickerOpen.value = open
-  if (!open) imagePickerAssetId.value = null
+  if (!open) {
+    pendingImageRequest?.complete(null)
+    pendingImageRequest = undefined
+    imagePickerAssetId.value = null
+  }
+}
+
+function openFilePicker(request: EditorAssetRequest<Partial<AssetInfo>>) {
+  if (props.disabled) return
+  pendingFileRequest?.complete(null)
+  pendingFileRequest = request
+  filePickerOpen.value = true
+}
+
+function setFilePickerOpen(open: boolean) {
+  filePickerOpen.value = open
+  if (!open) {
+    pendingFileRequest?.complete(null)
+    pendingFileRequest = undefined
+  }
 }
 
 function onConversionError(payload: { message?: string }) {
@@ -218,9 +275,9 @@ function onConversionRecovered() {
       <RichtextEditor
         v-if="editorReady"
         :id="field.key"
-        ref="editorRef"
         v-model="value"
         :asset-provider="assetProvider"
+        :authoring-kit="authoringKit"
         :aria-label="label"
         :placeholder="field.description || t('ginkoCms.studio.fieldRenderer.richtextPlaceholder')"
         :enable-files="!!assetContext"
@@ -229,9 +286,9 @@ function onConversionRecovered() {
         :aria-invalid="fieldError ? true : undefined"
         @conversion-error="onConversionError"
         @conversion-recovered="onConversionRecovered"
-        @request-image="assetContext ? openImagePicker() : void 0"
+        @request-image="assetContext ? openImagePicker($event) : $event.complete(null)"
         @request-image-metadata="assetContext ? openImageMetadata($event) : void 0"
-        @request-file="assetContext ? (filePickerOpen = true) : void 0"
+        @request-file="assetContext ? openFilePicker($event) : $event.complete(null)"
       />
       <div
         v-else
@@ -265,7 +322,7 @@ function onConversionRecovered() {
         :label="t('ginkoCms.studio.assetPicker.insertFileTitle')"
         :asset-context="assetContext"
         :disabled="disabled"
-        @update:open="filePickerOpen = $event"
+        @update:open="setFilePickerOpen"
         @select-asset="selectFileAsset"
       />
       <div

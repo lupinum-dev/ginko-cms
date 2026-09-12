@@ -1431,20 +1431,86 @@ describe('Studio workflow components', () => {
           StudioAssetMetadataDialog: { template: '<div />' },
           StudioAssetPicker: { template: '<div />' },
           StudioFieldShell: { template: '<section><slot name="action" /><slot /></section>' },
-          RichtextEditor: defineComponent({
-            props: { disabled: Boolean, modelValue: String },
-            emits: ['update:modelValue'],
-            template:
-              '<button type="button" data-testid="richtext-editor" :data-disabled="String(disabled)" @click="$emit(\'update:modelValue\', \'Changed\')">{{ modelValue }}</button>',
-          }),
         },
       },
     })
 
-    const editor = wrapper.get('[data-testid="richtext-editor"]')
-    expect(editor.attributes('data-disabled')).toBe('true')
-    await editor.trigger('click')
+    const editor = wrapper.get('textarea[aria-label="Body markdown source"]')
+    expect(editor.attributes()).toHaveProperty('disabled')
+    await editor.setValue('Changed')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('loads collection authoring metadata into the shared rich text editor', async () => {
+    const wrapper = mount(FieldRichtext, {
+      props: {
+        field: {
+          key: 'body',
+          type: 'richtext',
+          required: false,
+          description: null,
+        },
+        modelValue: '',
+        label: 'Body',
+        fieldError: null,
+        assetContext: {
+          collection: 'docs',
+          entryId: 'entry-1',
+          locale: 'en',
+          authoringSource: {
+            version: 1,
+            implementation: {
+              note: {
+                componentName: 'DocsNote',
+                props: {},
+                slots: ['default'],
+              },
+            },
+            policy: {
+              version: 2,
+              components: {
+                note: {
+                  kind: 'block',
+                  props: {},
+                  slots: ['default'],
+                  allowedParents: null,
+                  allowedChildren: null,
+                  media: null,
+                },
+              },
+            },
+            authoring: {
+              note: {
+                label: 'Documentation note',
+                slots: { default: { label: 'Content' } },
+              },
+            },
+            recipes: [
+              {
+                id: 'documentation-note',
+                label: 'Documentation note',
+                source: '<note>\nUseful context.\n</note>',
+              },
+            ],
+          },
+        },
+      },
+      global: {
+        stubs: {
+          Button: { template: '<button type="button"><slot /></button>' },
+          Icon: { template: '<span />' },
+          StudioAssetMetadataDialog: { template: '<div />' },
+          StudioAssetPicker: { template: '<div />' },
+          StudioFieldShell: { template: '<section><slot name="action" /><slot /></section>' },
+        },
+      },
+    })
+
+    await vi.waitFor(() =>
+      expect(wrapper.find('button[aria-label="Insert block"]').exists()).toBe(true),
+    )
+    await wrapper.get('button[aria-label="Insert block"]').trigger('click')
+    expect(wrapper.text()).toContain('Documentation note')
   })
 
   it.each([

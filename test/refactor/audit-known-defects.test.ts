@@ -266,7 +266,6 @@ describe('known audit defects', () => {
     const richtext = source(
       'packages/cms/studio-app/src/components/studio/fields/FieldRichtext.vue',
     )
-    const toolbar = source('packages/cms/studio-app/src/editor/ui/Toolbar.vue')
     const assets = source('packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue')
     const collections = source(
       'packages/cms/studio-app/src/composables/internal/useStudioCollectionsAdmin.ts',
@@ -276,11 +275,8 @@ describe('known audit defects', () => {
     expect(fields).toContain("import FieldRichtext from './FieldRichtext.vue'")
     expect(fields).toContain('richtext: FieldRichtext')
     expect(fields).not.toContain('defineAsyncComponent')
-    expect(richtext).toContain(
-      "defineAsyncComponent(() => import('../../../editor/ui/Editor.vue'))",
-    )
-    expect(toolbar).toContain('aria-label="Rich text formatting tools"')
-    expect(toolbar).toContain('tabindex="0"')
+    expect(richtext).toContain("from '@lupinum/ginko-editor'")
+    expect(richtext).toContain(':authoring-kit="authoringKit"')
     expect(assets).toContain('defineOptions({ inheritAttrs: false })')
     expect(assets).toContain('v-bind="$attrs"')
     expect(collections).toContain('collectionDetail: selectedCollectionDetail')

@@ -162,4 +162,39 @@ describe('ginko-content contract artifact consumption', () => {
       }),
     ).toThrow(/unknown key "routing"/)
   })
+
+  it('transports JSON authoring metadata only when it uses the Content policy', () => {
+    const contract = buildResolvedContentContract(
+      {
+        collections: {
+          docs: defineCollection({ type: 'page', source: 'content/docs/**/*.md', route: '/docs' }),
+        },
+      },
+      { defaultLocale: 'en', locales: ['en'] },
+    )
+    const policy = contract.collections.docs!.componentPolicy
+    const authoring = {
+      version: 1,
+      policy,
+      implementation: {},
+      authoring: {},
+      recipes: [],
+    }
+
+    expect(
+      projectContractCollections(contract, {
+        collections: { docs: { authoring, fields: {} } },
+      }).docs?.settings,
+    ).toMatchObject({ authoring, componentPolicy: policy })
+    expect(() =>
+      projectContractCollections(contract, {
+        collections: {
+          docs: {
+            authoring: { ...authoring, policy: { version: 2, components: { extra: {} } } },
+            fields: {},
+          },
+        },
+      }),
+    ).toThrow(/must exactly match its resolved Ginko Content policy/)
+  })
 })

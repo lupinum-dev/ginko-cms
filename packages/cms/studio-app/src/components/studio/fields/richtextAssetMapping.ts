@@ -1,5 +1,6 @@
+import type { AssetInfo } from '@lupinum/ginko-editor'
+
 import type { StudioAssetRecord } from '../../../composables/internal/types'
-import type { AssetInfo } from '../../../editor/types'
 
 function readLocalizedText(
   value: StudioAssetRecord['alt'] | StudioAssetRecord['caption'],
