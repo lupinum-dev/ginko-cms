@@ -69,6 +69,86 @@ describe('editor conversionPipeline', () => {
     editor.destroy()
   })
 
+  it('accepts nested inline components and empty named slots in the actual editor schema', async () => {
+    const editor = new Editor({
+      content: { content: [{ type: 'paragraph' }], type: 'doc' },
+      extensions: createEditorExtensions({
+        codeBlockTheme: 'github-dark',
+        enableDebug: false,
+        enableFiles: true,
+        enableVideo: true,
+        fileOutput: 'mdc',
+        imageOutput: 'mdc',
+        showMarkdownMarkers: false,
+        videoOutput: 'mdc',
+      }),
+    })
+    const source = [
+      'Before <Badge>outer <Token>inner</Token></Badge> after',
+      '',
+      '<Info>',
+      '<template #actions>',
+      '</template>',
+      '</Info>',
+    ].join('\n')
+
+    const result = await applyMarkdownToEditor(editor, source)
+    expect(result.ok).toBe(true)
+    expect(editor.getJSON()).toMatchObject({
+      content: expect.arrayContaining([
+        expect.objectContaining({
+          content: expect.arrayContaining([
+            expect.objectContaining({
+              content: expect.arrayContaining([
+                expect.objectContaining({ type: 'inline-element' }),
+              ]),
+              type: 'inline-element',
+            }),
+          ]),
+          type: 'paragraph',
+        }),
+        expect.objectContaining({
+          content: [expect.objectContaining({ type: 'slot' })],
+          type: 'element',
+        }),
+      ]),
+      type: 'doc',
+    })
+
+    editor.destroy()
+  })
+
+  it('keeps the current editor document when strict angle parsing rejects raw source', async () => {
+    const editor = new Editor({
+      content: {
+        content: [{ content: [{ type: 'text', text: 'Last good content' }], type: 'paragraph' }],
+        type: 'doc',
+      },
+      extensions: createEditorExtensions({
+        codeBlockTheme: 'github-dark',
+        enableDebug: false,
+        enableFiles: true,
+        enableVideo: true,
+        fileOutput: 'mdc',
+        imageOutput: 'mdc',
+        showMarkdownMarkers: false,
+        videoOutput: 'mdc',
+      }),
+    })
+    const before = editor.getJSON()
+
+    const result = await applyMarkdownToEditor(editor, 'Before <Badge')
+    expect(result.ok).toBe(false)
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'parse_mdc_failed', phase: 'parse_mdc' }),
+      ]),
+    )
+    expect(editor.getJSON()).toEqual(before)
+
+    editor.destroy()
+  })
+
   it('returns typed failure when setContent throws', () => {
     const editor = {
       commands: {

@@ -17,7 +17,7 @@ declare module '@tiptap/core' {
 
 export const Slot = Node.create<SlotOptions>({
   name: 'slot',
-  content: 'block+',
+  content: 'block*',
   group: 'block',
   inline: false,
   isolating: true,

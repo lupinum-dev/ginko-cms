@@ -20,7 +20,7 @@ const INLINE_ELEMENT_INPUT_RULE_FIND = /(?:^|\s)(:([a-z-]+)(?:\[([^\]]*)\])?(?:\
 export const InlineElement = Node.create<InlineElementOptions>({
   name: 'inline-element',
   group: 'inline',
-  content: 'text*',
+  content: 'inline*',
   inline: true,
   priority: 1000,
 

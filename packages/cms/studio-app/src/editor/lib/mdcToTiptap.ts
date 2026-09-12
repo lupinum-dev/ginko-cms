@@ -269,9 +269,15 @@ export function mdcNodeToTiptap(
     })
   }
 
-  // Custom vue components (Elements)
-  // If parent is a paragraph, then element should be inline
-  if ((parent as MDCElement)?.tag === 'p') {
+  // Parser metadata keeps nested inline components inline even when their
+  // immediate parent is another component instead of a paragraph.
+  const parserMetadata = node.type === 'element' && node.props?.$
+  const authoredInline =
+    parserMetadata &&
+    typeof parserMetadata === 'object' &&
+    !Array.isArray(parserMetadata) &&
+    parserMetadata.block === 0
+  if ((parent as MDCElement)?.tag === 'p' || authoredInline) {
     return createTipTapNode(node as MDCElement, 'inline-element', { attrs: { tag: type } })
   }
 
