@@ -5,14 +5,16 @@ import {
   type AuthoringKitSourceV1,
   type AuthoringKitV1,
   type EditorAssetRequest,
+  type GinkoEditorHandle,
   type AssetInfo,
   GinkoEditor as RichtextEditor,
 } from '@lupinum/ginko-editor'
 
 import '@lupinum/ginko-editor/style.css'
-import { computed, ref, shallowRef, toRaw, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, toRaw, useId, watch } from 'vue'
 
 import { api } from '../../../boundary/api'
+import { useOptionalStudioRichtextFlush } from '../../../composables/internal/studioRichtextFlush'
 import type { StudioAssetContext, StudioAssetRecord } from '../../../composables/internal/types'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
@@ -51,6 +53,9 @@ const metadataDialogOpen = ref(false)
 const metadataAssetId = ref<string | null>(null)
 const filePickerOpen = ref(false)
 const authoringKit = shallowRef<AuthoringKitV1>()
+const editorRef = ref<GinkoEditorHandle | null>(null)
+const richtextFlush = useOptionalStudioRichtextFlush()
+const flushId = `${props.field.key}:${props.assetContext?.locale ?? ''}:${useId()}`
 const authoringPending = ref(Boolean(props.assetContext?.authoringSource))
 let authoringRevision = 0
 let pendingImageRequest: EditorAssetRequest<Partial<AssetInfo>> | undefined
@@ -132,9 +137,17 @@ const assetProvider: AssetProvider = {
     if (!url) {
       return null
     }
-    return { id: assetIdByUrl.value.get(url), url }
+    const storedId = /^[\w;:-]{1,512}$/.test(url) ? url : undefined
+    return { id: storedId ?? assetIdByUrl.value.get(url), url }
   },
 }
+
+let unregisterEditor: (() => void) | undefined
+watch(editorRef, (handle) => {
+  unregisterEditor?.()
+  unregisterEditor = handle ? richtextFlush?.register(flushId, handle) : undefined
+})
+onBeforeUnmount(() => unregisterEditor?.())
 
 watch(
   () => props.assetContext?.authoringSource,
@@ -275,17 +288,21 @@ function onConversionRecovered() {
       <RichtextEditor
         v-if="editorReady"
         :id="field.key"
+        ref="editorRef"
         v-model="value"
         :asset-provider="assetProvider"
         :authoring-kit="authoringKit"
         :aria-label="label"
         :placeholder="field.description || t('ginkoCms.studio.fieldRenderer.richtextPlaceholder')"
         :enable-files="!!assetContext"
+        :enable-image-metadata="!!assetContext"
+        image-output="markdown"
         :enable-video="true"
         :disabled="props.disabled === true"
         :aria-invalid="fieldError ? true : undefined"
         @conversion-error="onConversionError"
         @conversion-recovered="onConversionRecovered"
+        @pending-change="richtextFlush?.setPending(flushId, $event)"
         @request-image="assetContext ? openImagePicker($event) : $event.complete(null)"
         @request-image-metadata="assetContext ? openImageMetadata($event) : void 0"
         @request-file="assetContext ? openFilePicker($event) : $event.complete(null)"

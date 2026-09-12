@@ -274,7 +274,8 @@ function materializeOfflineContentContract() {
   const script = [
     "import { mkdir, writeFile } from 'node:fs/promises'",
     "import { buildResolvedContentContract } from '@lupinum/ginko-content/cms-contract'",
-    "const contract = buildResolvedContentContract({ collections: { pages: { type: 'page', source: 'content/**/*.md' } } }, { defaultLocale: 'en', locales: ['en'] })",
+    "const componentPolicy = { version: 2, components: { note: { kind: 'block', props: { tone: { types: ['string'], required: true, allowedValues: ['info', 'warning'] } }, slots: ['default'], allowedParents: null, allowedChildren: null, media: null } } }",
+    "const contract = buildResolvedContentContract({ collections: { pages: { type: 'page', source: 'content/**/*.md' } } }, { defaultLocale: 'en', locales: ['en'], componentPolicy })",
     "await mkdir('.ginko', { recursive: true })",
     "await writeFile('.ginko/content-contract.json', JSON.stringify(contract) + '\\n')",
   ].join(';')

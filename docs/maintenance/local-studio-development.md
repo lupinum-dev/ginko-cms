@@ -92,6 +92,26 @@ workflow runs the source-linked local workspace during active development. It
 does not relax peer resolution or alter candidate manifests; clean packed
 consumers still install from scratch and enforce the compatibility tuple.
 
+## Test an unpublished Editor candidate
+
+Use immutable package archives without changing CMS package metadata:
+
+```bash
+GINKO_EDITOR_TARBALL=/absolute/path/to/lupinum-ginko-editor-0.1.0.tgz \
+GINKO_EDITOR_SHA256=15408e883bc1ff5e8f98f21ccf69f05e593a12702bd82233179e07dd05b15366 \
+GINKO_CONTENT_TARBALL=/absolute/path/to/lupinum-ginko-content-1.0.0-beta.7.tgz \
+GINKO_CONTENT_SHA256=b97c7a4aa224a7ce39c9a9190a7869247c117607e6a0d983501defb128314aa5 \
+pnpm run dev:editor-candidates
+```
+
+The command verifies the exact archive hashes and rejects local dependency
+specifiers in their release manifests. It builds an ignored consumer under
+`.candidate/`, binds Editor's Vue, TipTap, and Content peers to one physical
+instance, links the candidate packages into the root and CMS package, and writes
+`.candidate/editor-integration/evidence.json`. Run the normal Studio command
+after this setup. A clean `pnpm install --frozen-lockfile` restores registry
+dependencies because no source manifest or lockfile is changed.
+
 Open:
 
 ```text

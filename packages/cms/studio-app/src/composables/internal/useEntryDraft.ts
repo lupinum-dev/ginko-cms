@@ -4,7 +4,7 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { buildCmsFieldData } from '@public/utils/cmsFields'
 import type { FunctionArgs } from 'convex/server'
 import type { Ref } from 'vue'
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 
 import { api } from '../../boundary/api'
@@ -12,6 +12,7 @@ import { useConvexMutation } from '../useStudioConvex'
 import type { useStudioDebug } from '../useStudioDebug'
 import { isConcurrentEditError, isTransientSaveError, OfflineSaveRetry } from './autosaveRecovery'
 import { SaveQueue } from './saveQueue'
+import type { StudioRichtextFlush } from './studioRichtextFlush'
 import type { StudioCollectionConfig, StudioEntry, StudioField } from './types'
 import { studioConfirm } from './useStudioConfirm'
 
@@ -32,6 +33,7 @@ interface EntryDraftDeps {
   t: (key: string) => string
   initialized: Ref<boolean>
   refreshEntry: () => Promise<void>
+  richtextFlush: StudioRichtextFlush
 }
 
 export function useEntryDraft(deps: EntryDraftDeps) {
@@ -51,6 +53,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     t,
     initialized,
     refreshEntry,
+    richtextFlush,
   } = deps
 
   const isDirty = ref(false)
@@ -66,7 +69,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   const saveState = computed<'saving' | 'saved' | 'dirty' | 'conflict' | 'offline-pending'>(() => {
     if (saveConflict.value) return 'conflict'
     if (offlineSavePending.value) return 'offline-pending'
-    if (saving.value || saveQueue.active) return 'saving'
+    if (saving.value || saveQueue.active || richtextFlush.hasPending.value) return 'saving'
     if (isDirty.value) return 'dirty'
     return 'saved'
   })
@@ -249,6 +252,12 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
   // --- Unsaved changes guards ---
   onBeforeRouteLeave(async () => {
+    const flushResult = await richtextFlush.flush()
+    if (!flushResult.ok) {
+      error.value = flushResult.error.message
+      return false
+    }
+    await nextTick()
     // A write in flight is still unsaved until the backend acknowledges it.
     // Keep the route blocked for both pending and failed local work; the
     // successful save path clears `isDirty` only after mutation success.
@@ -274,7 +283,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
   if (typeof window !== 'undefined') {
     const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
-      if (isDirty.value) {
+      if (isDirty.value || richtextFlush.hasPending.value) {
         event.preventDefault()
       }
     }
@@ -467,6 +476,13 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
   async function handleSaveDraft(silent = false) {
     if (!canEditEntries.value) return false
+
+    const flushResult = await richtextFlush.flush()
+    if (!flushResult.ok) {
+      error.value = flushResult.error.message
+      return false
+    }
+    await nextTick()
 
     cancelAutoSave()
     const requestedEditSerial = editSerial.value
