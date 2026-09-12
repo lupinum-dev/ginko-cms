@@ -60,6 +60,9 @@ const authoringPending = ref(Boolean(props.assetContext?.authoringSource))
 let authoringRevision = 0
 let pendingImageRequest: EditorAssetRequest<Partial<AssetInfo>> | undefined
 let pendingFileRequest: EditorAssetRequest<Partial<AssetInfo>> | undefined
+// The picker already owns the URL. Make it available before TipTap paints a
+// newly inserted stable id, rather than waiting for the source query to catch up.
+const selectedAssetUrls = new Map<string, string>()
 const maxResolvedAssetIds = 200
 
 const referencedAssetIds = computed<string[]>((previous) => {
@@ -131,7 +134,7 @@ const assetProvider: AssetProvider = {
           ? explicitUrl
           : ''
     const urls = assetUrlsQuery.data?.value as Record<string, string | null> | undefined
-    return urls?.[assetId] || explicitUrl
+    return urls?.[assetId] || selectedAssetUrls.get(assetId) || explicitUrl
   },
   parseUrl(url) {
     if (!url) {
@@ -173,6 +176,7 @@ watch(
 
 function selectImageAsset(asset: StudioAssetRecord) {
   if (props.disabled) return
+  if (asset.url) selectedAssetUrls.set(asset._id, asset.url)
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
   pendingImageRequest?.complete(mapStudioAssetToImageInfo(asset, locale))
@@ -183,6 +187,7 @@ function selectImageAsset(asset: StudioAssetRecord) {
 
 function selectFileAsset(asset: StudioAssetRecord) {
   if (props.disabled) return
+  if (asset.url) selectedAssetUrls.set(asset._id, asset.url)
   const locale =
     typeof props.assetContext?.locale === 'string' ? props.assetContext.locale : undefined
   pendingFileRequest?.complete(mapStudioAssetToFileInfo(asset, locale))
@@ -295,8 +300,9 @@ function onConversionRecovered() {
         :aria-label="label"
         :placeholder="field.description || t('ginkoCms.studio.fieldRenderer.richtextPlaceholder')"
         :enable-files="!!assetContext"
+        :enable-images="!!assetContext"
         :enable-image-metadata="!!assetContext"
-        :enable-video="true"
+        :enable-video="false"
         :disabled="props.disabled === true"
         :aria-invalid="fieldError ? true : undefined"
         @conversion-error="onConversionError"

@@ -1410,6 +1410,56 @@ describe('Studio workflow components', () => {
     }
   })
 
+  it('resolves a newly selected image before the editor paints its stored id', async () => {
+    const wrapper = mount(FieldRichtext, {
+      props: {
+        field: { key: 'body', type: 'richtext', required: false, description: null },
+        modelValue: '',
+        label: 'Body',
+        fieldError: null,
+        assetContext: { collection: 'docs', entryId: 'entry-1', locale: 'en' },
+      },
+      global: {
+        stubs: {
+          Button: { template: '<button type="button"><slot /></button>' },
+          Icon: { template: '<span />' },
+          StudioAssetMetadataDialog: { template: '<div />' },
+          StudioAssetPicker: {
+            name: 'StudioAssetPicker',
+            props: ['kind'],
+            emits: ['select-asset'],
+            template: '<div />',
+          },
+          StudioFieldShell: { template: '<section><slot name="action" /><slot /></section>' },
+        },
+      },
+    })
+    try {
+      const shared = wrapper.findComponent({ name: 'GinkoEditor' })
+      const provider = shared.props('assetProvider')
+      let resolvedAtCompletion = ''
+      shared.vm.$emit('request-image', {
+        complete: () => {
+          resolvedAtCompletion = provider.buildUrl({ id: 'newly-selected-asset' })
+          return true
+        },
+      })
+      const picker = wrapper
+        .findAllComponents({ name: 'StudioAssetPicker' })
+        .find((item) => item.props('kind') === 'image')!
+      picker.vm.$emit('select-asset', {
+        _id: 'newly-selected-asset',
+        url: 'https://example.com/new-image.png',
+        filename: 'new-image.png',
+        mimeType: 'image/png',
+      })
+      expect(resolvedAtCompletion).toBe('https://example.com/new-image.png')
+      expect(shared.props('enableVideo')).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('does not dirty rich text while disabled', async () => {
     const wrapper = mount(FieldRichtext, {
       props: {
