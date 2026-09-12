@@ -141,6 +141,24 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).toContain("originalFilename: 'packed-pixel.png'")
   })
 
+  it('keeps unpublished Content proof in an explicitly non-registry consumer lane', () => {
+    const packageJson = readJson<{ scripts: Record<string, string> }>('package.json')
+    const source = readFileSync('scripts/package-e2e.mjs', 'utf8')
+
+    expect(packageJson.scripts['package:e2e:local-content']).toBe(
+      'node scripts/package-e2e.mjs --local-content',
+    )
+    expect(packageJson.scripts['package:e2e:local-content:npm']).toBe(
+      'node scripts/package-e2e.mjs --local-content --package-manager npm',
+    )
+    expect(source).toContain("localContentMode ? '.pack/local-content'")
+    expect(source).toContain('GINKO_CONTENT_ARTIFACT')
+    expect(source).toContain('evidence.releaseEligible !== true')
+    expect(source).toContain('source: localContentMode ? { commit: localCmsCommit, dirty: false }')
+    expect(source).toContain('lane: candidateMode')
+    expect(source).toContain("'local-content-candidate'")
+  })
+
   it('accepts upstream candidate bytes only through the immutable compatibility authority', () => {
     const source = readFileSync('scripts/candidate-pack.mjs', 'utf8')
 

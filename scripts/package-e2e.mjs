@@ -33,7 +33,11 @@ const coordinatedPackageManifests = ['packages/cms', 'packages/contract', 'packa
 )
 const consumerCompatibility = compatibilityMatrix.consumer
 const candidateMode = process.argv.includes('--candidate')
-const packDir = resolve(repoRoot, candidateMode ? '.pack/candidate' : '.pack')
+const localContentMode = process.argv.includes('--local-content')
+const packDir = resolve(
+  repoRoot,
+  candidateMode ? '.pack/candidate' : localContentMode ? '.pack/local-content' : '.pack',
+)
 const candidateArtifactPath = resolve(packDir, 'candidate-artifact.json')
 const candidateArtifact = candidateMode
   ? JSON.parse(readFileSync(candidateArtifactPath, 'utf8'))
@@ -48,9 +52,12 @@ if (!['npm', 'pnpm'].includes(consumerPackageManager)) {
 }
 const developmentMode = process.argv.includes('--dev-sources')
 const registryDependencies = process.argv.includes('--registry-deps')
-if ([candidateMode, developmentMode, registryDependencies].filter(Boolean).length !== 1) {
+if (
+  [candidateMode, developmentMode, registryDependencies, localContentMode].filter(Boolean)
+    .length !== 1
+) {
   throw new Error(
-    'Choose exactly one package dependency lane: --candidate, --dev-sources, or --registry-deps.',
+    'Choose exactly one package dependency lane: --candidate, --dev-sources, --local-content, or --registry-deps.',
   )
 }
 const siblingBetterConvexNuxtRoot = resolve(repoRoot, '../../convex/better-convex-nuxt')
@@ -66,12 +73,11 @@ const liveConvex = process.argv.includes('--live')
 let liveDeploymentEvidence = null
 let livePublishedReadEvidence = null
 const registryContent = registryDependencies || developmentMode
-const registryBetterConvexNuxt = registryDependencies || (developmentMode && !betterConvexNuxtRoot)
+const registryBetterConvexNuxt =
+  registryDependencies || localContentMode || (developmentMode && !betterConvexNuxtRoot)
 const registryBetterConvexVue = registryBetterConvexNuxt
-const registryBetterConvexMcp = registryDependencies || (developmentMode && !betterConvexMcpRoot)
-const contentRegistryVersion =
-  process.env.GINKO_CONTENT_PACKAGE_VERSION ||
-  compatibilityMatrix.releaseStack['@lupinum/ginko-content']
+const registryBetterConvexMcp =
+  registryDependencies || localContentMode || (developmentMode && !betterConvexMcpRoot)
 const betterConvexNuxtRegistryVersion =
   process.env.BETTER_CONVEX_NUXT_PACKAGE_VERSION ||
   compatibilityMatrix.releaseStack['@lupinum/better-convex-nuxt']
@@ -84,6 +90,44 @@ const betterConvexMcpRegistryVersion =
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+function requireLocalContentArtifact() {
+  const tarballPath = process.env.GINKO_CONTENT_TARBALL
+  const evidencePath = process.env.GINKO_CONTENT_ARTIFACT
+  if (!tarballPath || !evidencePath) {
+    throw new Error('--local-content requires GINKO_CONTENT_TARBALL and GINKO_CONTENT_ARTIFACT.')
+  }
+  const path = resolve(tarballPath)
+  const artifactPath = resolve(evidencePath)
+  if (!existsSync(path) || !existsSync(artifactPath)) {
+    throw new Error('The local Content tarball or release artifact does not exist.')
+  }
+  const evidence = JSON.parse(readFileSync(artifactPath, 'utf8'))
+  const manifest = JSON.parse(
+    execFileSync('tar', ['-xOf', path, 'package/package.json'], { encoding: 'utf8' }),
+  )
+  const actualHash = sha256(path)
+  if (
+    evidence.packageName !== '@lupinum/ginko-content' ||
+    manifest.name !== evidence.packageName ||
+    manifest.version !== evidence.packageVersion ||
+    evidence.sha256 !== actualHash ||
+    evidence.worktreeDirty !== false ||
+    evidence.releaseEligible !== true ||
+    evidence.reproduciblePacks !== 2 ||
+    typeof evidence.commit !== 'string'
+  ) {
+    throw new Error('The local Content archive is not a correctly attested clean candidate.')
+  }
+  return {
+    path,
+    sha256: actualHash,
+    version: evidence.packageVersion,
+    commit: evidence.commit,
+    releaseArtifactPath: artifactPath,
+    releaseArtifactSha256: sha256(artifactPath),
+  }
 }
 
 function declaredExportSpecifiers(packageManifest) {
@@ -184,6 +228,11 @@ function requireCandidateArtifact(pathVariable, packageName) {
 const candidateContent = candidateMode
   ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', '@lupinum/ginko-content')
   : undefined
+const localContent = localContentMode ? requireLocalContentArtifact() : undefined
+const contentRegistryVersion =
+  localContent?.version ||
+  process.env.GINKO_CONTENT_PACKAGE_VERSION ||
+  compatibilityMatrix.releaseStack['@lupinum/ginko-content']
 const candidateBetterConvexNuxt = candidateMode
   ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', '@lupinum/better-convex-nuxt')
   : undefined
@@ -193,6 +242,23 @@ const candidateBetterConvexVue = candidateMode
 const candidateBetterConvexMcp = candidateMode
   ? requireCandidateArtifact('BETTER_CONVEX_MCP_TARBALL', '@lupinum/better-convex-mcp')
   : undefined
+
+function assertLocalCmsClean() {
+  if (!localContentMode) return
+  const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=normal'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  }).trim()
+  if (status) {
+    throw new Error(
+      `Local Content candidate verification requires a clean CMS repository:\n${status}`,
+    )
+  }
+}
+const localCmsCommit = localContentMode
+  ? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+  : undefined
+assertLocalCmsClean()
 
 function packageE2eEnv() {
   const packageManagerConfig =
@@ -646,6 +712,7 @@ export const cleanup = action({
 try {
   if (!candidateMode) {
     buildPackedPackages()
+    assertLocalCmsClean()
 
     rmSync(packDir, { force: true, recursive: true })
     mkdirSync(packDir, { recursive: true })
@@ -663,7 +730,9 @@ try {
   const packedContractTarball = findTarball('lupinum/ginko-cms-contract')
   const packedConvexTarball = findTarball('lupinum/ginko-cms-convex')
   const packedCmsTarball = findTarball('lupinum/ginko-cms')
-  const contentTarball = registryContent ? undefined : candidateContent?.path
+  const contentTarball = registryContent
+    ? undefined
+    : (candidateContent?.path ?? localContent?.path)
   const betterConvexNuxtTarball =
     registryBetterConvexNuxt || candidateBetterConvexNuxt
       ? undefined
@@ -1186,30 +1255,38 @@ console.log('packed MCP read/write behavior ok')
   if (/\b(?:link|workspace):/.test(consumerLockfile)) {
     throw new Error('Candidate consumer lockfile contains a workspace or link dependency.')
   }
-  if (candidateMode && consumerPackageManager === 'pnpm') {
+  if ((candidateMode || localContentMode) && consumerPackageManager === 'pnpm') {
     assertCandidateLockfile(consumerLockfile, {
       '@lupinum/ginko-cms': fileDependency(cmsTarball),
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
       '@lupinum/ginko-content': fileDependency(installedContentTarball),
-      '@lupinum/better-convex-mcp': fileDependency(installedBetterConvexMcpTarball),
-      '@lupinum/better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
-      '@lupinum/better-convex-vue': fileDependency(candidateBetterConvexVue.path),
+      ...(candidateMode
+        ? {
+            '@lupinum/better-convex-mcp': fileDependency(installedBetterConvexMcpTarball),
+            '@lupinum/better-convex-nuxt': fileDependency(candidateBetterConvexNuxt.path),
+            '@lupinum/better-convex-vue': fileDependency(candidateBetterConvexVue.path),
+          }
+        : {}),
     })
     if (parseYaml(consumerLockfile)?.importers?.['.']?.dependencies?.kysely) {
       throw new Error('pnpm candidate consumer must not declare Kysely directly.')
     }
   }
-  if (candidateMode && consumerPackageManager === 'npm') {
+  if ((candidateMode || localContentMode) && consumerPackageManager === 'npm') {
     const lockfile = JSON.parse(consumerLockfile)
     for (const name of [
       '@lupinum/ginko-cms',
       '@lupinum/ginko-cms-contract',
       '@lupinum/ginko-cms-convex',
       '@lupinum/ginko-content',
-      '@lupinum/better-convex-mcp',
-      '@lupinum/better-convex-nuxt',
-      '@lupinum/better-convex-vue',
+      ...(candidateMode
+        ? [
+            '@lupinum/better-convex-mcp',
+            '@lupinum/better-convex-nuxt',
+            '@lupinum/better-convex-vue',
+          ]
+        : []),
     ]) {
       const suffix = `node_modules/${name}`
       const matches = Object.keys(lockfile.packages ?? {}).filter(
@@ -1381,7 +1458,7 @@ console.log('packed MCP read/write behavior ok')
       `package e2e ${consumerPackageManager} ok`,
       `consumer=${tempDir}`,
       `cms=${basename(cmsTarball)}`,
-      `content=${candidateContent ? basename(candidateContent.path) : registryContent ? contentRegistryVersion : basename(contentTarball)}`,
+      `content=${candidateContent || localContent ? basename(contentTarball) : registryContent ? contentRegistryVersion : basename(contentTarball)}`,
       `convex=${basename(convexTarball)}`,
       `contract=${basename(contractTarball)}`,
       `betterConvexNuxt=${
@@ -1403,7 +1480,13 @@ console.log('packed MCP read/write behavior ok')
 
   const releaseEvidence = {
     schemaVersion: 1,
-    lane: candidateMode ? 'candidate' : registryDependencies ? 'registry' : 'development',
+    lane: candidateMode
+      ? 'candidate'
+      : localContentMode
+        ? 'local-content-candidate'
+        : registryDependencies
+          ? 'registry'
+          : 'development',
     live: liveConvex,
     packageManager: consumerPackageManager,
     lockfileSha256: sha256(lockfilePath),
@@ -1413,10 +1496,12 @@ console.log('packed MCP read/write behavior ok')
           candidateArtifactSha256: sha256(candidateArtifactPath),
         }
       : null,
+    source: localContentMode ? { commit: localCmsCommit, dirty: false } : null,
     deployment: liveDeploymentEvidence,
     publishedRead: livePublishedReadEvidence,
     dependencies: {
-      '@lupinum/ginko-content': candidateContent ?? { version: contentRegistryVersion },
+      '@lupinum/ginko-content': candidateContent ??
+        localContent ?? { version: contentRegistryVersion },
       '@lupinum/better-convex-nuxt':
         candidateBetterConvexNuxt ??
         (betterConvexNuxtTarball
