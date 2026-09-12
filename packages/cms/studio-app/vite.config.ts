@@ -21,19 +21,16 @@ export default defineConfig(({ command }) => ({
     // Bare-named components (e.g. <SidebarProvider>, <StudioSidebar>,
     // <CmsCommandPalette>) used to resolve through Nuxt's global
     // addComponentsDir. In the SPA we use unplugin-vue-components to scan
-    // src/components/** and emit imports automatically. UI primitives,
-    // studio components, and the editor tree are all here.
+    // src/components/** and emit imports automatically.
     Components({
-      dirs: [
-        fileURLToPath(new URL('./src/components', import.meta.url)),
-        fileURLToPath(new URL('./src/editor/ui', import.meta.url)),
-      ],
+      dirs: [fileURLToPath(new URL('./src/components', import.meta.url))],
       extensions: ['vue'],
       deep: true,
       dts: fileURLToPath(new URL('./components.d.ts', import.meta.url)),
     }),
   ],
   resolve: {
+    dedupe: ['@lupinum/ginko-content', '@tiptap/core', '@tiptap/pm', '@tiptap/vue-3', 'vue'],
     alias: {
       // Re-use the public-surface schemas/locales directly from the cms
       // package source. The SPA bundle is independent of dist/, so these

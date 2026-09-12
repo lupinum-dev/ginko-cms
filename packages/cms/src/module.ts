@@ -239,7 +239,6 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
 
     nuxt.options.alias ??= {}
     nuxt.options.alias['#ginko-cms'] = cmsRuntimeDir
-    nuxt.options.alias['#ginko-cms/editor'] = resolve(cmsRuntimeDir, 'editor')
     nuxt.options.alias['#ginko-cms-public'] = cmsPublicDir
 
     // i18n integration

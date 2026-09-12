@@ -107,6 +107,11 @@ function requireLocalContentArtifact() {
   const manifest = JSON.parse(
     execFileSync('tar', ['-xOf', path, 'package/package.json'], { encoding: 'utf8' }),
   )
+  const cmsContractEntry = execFileSync(
+    'tar',
+    ['-xOf', path, 'package/dist/cms-contract/index.js'],
+    { encoding: 'utf8' },
+  )
   const actualHash = sha256(path)
   if (
     evidence.packageName !== '@lupinum/ginko-content' ||
@@ -119,6 +124,17 @@ function requireLocalContentArtifact() {
     typeof evidence.commit !== 'string'
   ) {
     throw new Error('The local Content archive is not a correctly attested clean candidate.')
+  }
+  for (const requiredExport of [
+    'RESOLVED_CONTENT_CONTRACT_VERSION_V2',
+    'parseMdcBody',
+    'assertPortableComponentPolicyV2',
+  ]) {
+    if (!cmsContractEntry.includes(requiredExport)) {
+      throw new Error(
+        `The local Content archive does not export required V2 CMS contract API ${requiredExport}.`,
+      )
+    }
   }
   return {
     path,

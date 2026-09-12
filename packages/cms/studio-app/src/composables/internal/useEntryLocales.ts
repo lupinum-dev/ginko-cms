@@ -40,6 +40,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     collection,
     contentRoute,
     router,
+    collectionConfig,
     locales,
     localeVariants,
     currentLocale,
@@ -77,6 +78,12 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
   }))
 
   const secondaryAssetContext = computed(() => ({
+    authoringSource:
+      collectionConfig.value?.settings &&
+      typeof collectionConfig.value.settings === 'object' &&
+      !Array.isArray(collectionConfig.value.settings)
+        ? collectionConfig.value.settings.authoring
+        : undefined,
     collection: collection.value,
     locale: secondaryLocale.value,
     entryId: entryId.value,

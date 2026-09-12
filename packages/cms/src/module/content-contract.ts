@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { isEqualJsonValue } from '@lupinum/ginko-cms-contract/shared/utils.js'
 import type {
   ResolvedContentCollection,
   ResolvedContentContract,
@@ -99,7 +100,10 @@ function fieldFromContract(
   }
 }
 
-function collectionSettings(collection: ResolvedContentCollection): JsonValue {
+function collectionSettings(
+  collection: ResolvedContentCollection,
+  layout: CmsEditorialLayout['collections'][string] | undefined,
+): JsonValue {
   return {
     defaultLocale: collection.defaultLocale,
     localizedPathPrefixes: collection.routing.localizedPathPrefixes,
@@ -107,6 +111,7 @@ function collectionSettings(collection: ResolvedContentCollection): JsonValue {
     allowMultipleRoots: collection.routing.allowMultipleRoots,
     portable: collection.portable,
     componentPolicy: collection.componentPolicy,
+    ...(layout?.authoring !== undefined ? { authoring: layout.authoring } : {}),
   } as unknown as JsonValue
 }
 
@@ -135,7 +140,7 @@ export function projectContractCollections(
           fields: collection.fields.map((field) =>
             fieldFromContract(field, collectionLayout?.fields[field.key]),
           ),
-          settings: collectionSettings(collection),
+          settings: collectionSettings(collection, collectionLayout),
         } satisfies CollectionConfig,
       ]
     }),
@@ -156,9 +161,22 @@ function validateEditorialLayout(
       )
     assertOnlyKeys(
       collectionLayout,
-      ['label', 'icon', 'fields'],
+      ['authoring', 'label', 'icon', 'fields'],
       `Editorial layout collection "${collectionSlug}"`,
     )
+    if (collectionLayout.authoring !== undefined) {
+      const authoring = collectionLayout.authoring
+      if (
+        !authoring ||
+        typeof authoring !== 'object' ||
+        Array.isArray(authoring) ||
+        !isEqualJsonValue((authoring as Record<string, unknown>).policy, collection.componentPolicy)
+      ) {
+        throw new Error(
+          `[ginko-cms] Editorial authoring policy for collection "${collectionSlug}" must exactly match its resolved Ginko Content policy.`,
+        )
+      }
+    }
     const fieldKeys = new Set(collection.fields.map((field) => field.key))
     for (const [fieldKey, fieldLayout] of Object.entries(collectionLayout.fields)) {
       if (!fieldKeys.has(fieldKey)) {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   mapStudioAssetToFileInfo,
   mapStudioAssetToImageInfo,
-} from '../../../packages/cms/studio-app/src/components/studio/fields/richtextAssetMapping'
+} from '../../packages/cms/studio-app/src/components/studio/fields/richtextAssetMapping'
 
 describe('richtext asset mapping', () => {
   it('maps localized studio image assets into editor image payloads', () => {

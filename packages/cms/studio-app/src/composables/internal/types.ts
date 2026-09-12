@@ -94,6 +94,7 @@ export interface StudioAssetRecord {
 }
 
 export interface StudioAssetContext {
+  authoringSource?: unknown
   locale?: string
   entryId?: string
   collection?: string

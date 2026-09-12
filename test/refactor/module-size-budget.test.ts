@@ -18,16 +18,12 @@ const budgets = {
   // browsing/filtering/sorting lives in the pure item builder.
   'packages/cms/studio-app/src/composables/internal/useStudioAssetFinder.ts': 800,
   // Collection orchestration stays in the route while the flat and tree row
-  // renderers share one typed presentation model. The editor keeps lifecycle
-  // and conversion synchronization in its shell; media commands and scoped
-  // presentation styles have focused owners.
+  // renderers share one typed presentation model. Rich-text lifecycle and
+  // conversion budgets belong to the shared @lupinum/ginko-editor package.
   'packages/cms/studio-app/src/pages/[collection]/index.vue': 730,
   'packages/cms/studio-app/src/components/studio/collections/StudioCollectionFlatList.vue': 130,
   'packages/cms/studio-app/src/components/studio/collections/StudioCollectionTreeList.vue': 150,
   'packages/cms/studio-app/src/lib/studioCollectionRows.ts': 160,
-  'packages/cms/studio-app/src/editor/ui/Editor.vue': 720,
-  'packages/cms/studio-app/src/editor/ui/Editor.css': 360,
-  'packages/cms/studio-app/src/editor/model/useEditorMedia.ts': 160,
   // The package keeps one stable Convex validator entry point. Focused modules
   // own canonical domain validators; the entry point only re-exports them.
   'packages/contract/src/validators.ts': 150,

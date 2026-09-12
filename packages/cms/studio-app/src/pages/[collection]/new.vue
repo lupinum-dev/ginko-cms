@@ -291,6 +291,12 @@ const editorContext = computed(() => ({
   ...dataFields,
 }))
 const assetContext = computed(() => ({
+  authoringSource:
+    collectionConfig.value?.settings &&
+    typeof collectionConfig.value.settings === 'object' &&
+    !Array.isArray(collectionConfig.value.settings)
+      ? collectionConfig.value.settings.authoring
+      : undefined,
   collection: collection.value,
   locale: defaultLocale.value,
   onAssetRegistered: async (assetId: string, scope: 'global' | 'collection' | 'entry') => {

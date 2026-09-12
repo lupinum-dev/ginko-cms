@@ -49,6 +49,8 @@ export interface CmsEditorialLayout {
   collections: Record<
     string,
     {
+      /** JSON-safe Editor authoring metadata. Its policy must equal the collection's Content policy. */
+      authoring?: JsonValue
       label?: LocaleText
       icon?: string
       fields: Record<
