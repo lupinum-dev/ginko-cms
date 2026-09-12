@@ -14,13 +14,15 @@ import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { buildCmsFieldData, getClientValidationErrors } from '@public/utils/cmsFields'
 import type { FunctionArgs } from 'convex/server'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
 import StudioEntryCreatePanel from '../../components/studio/editor/StudioEntryCreatePanel.vue'
 import StudioEntryHeroFields from '../../components/studio/editor/StudioEntryHeroFields.vue'
 import StudioEntryParentPicker from '../../components/studio/editor/StudioEntryParentPicker.vue'
+import { provideStudioRichtextFlush } from '../../composables/internal/studioRichtextFlush'
 import type { StudioCollectionConfig } from '../../composables/internal/types'
+import { studioConfirm } from '../../composables/internal/useStudioConfirm'
 import { cmsPermissionKeys } from '../../composables/permissions'
 import { useCmsConfig } from '../../composables/useCmsConfig'
 import { useCmsContractCompatibility } from '../../composables/useCmsContractCompatibility'
@@ -56,6 +58,7 @@ const showDefaultLocaleLabel = computed(
   () => defaultLocaleLabel.value.toLowerCase() !== defaultLocale.value.toLowerCase(),
 )
 const studioDebug = useStudioDebug('collection:new')
+const richtextFlush = provideStudioRichtextFlush()
 const form = reactive({
   slug: '',
   kind: 'page',
@@ -69,6 +72,14 @@ const stagedAssetIds = ref<string[]>([])
 const submitted = ref(false)
 const saving = ref(false)
 const error = ref('')
+const isDirty = computed(
+  () =>
+    stagedAssetIds.value.length > 0 ||
+    Object.values(dataFields).some(
+      (value) => value !== '' && value !== null && value !== undefined,
+    ) ||
+    Boolean(form.icon || form.badge || form.parentEntryId),
+)
 const sharedSlugEditing = ref(false)
 const sharedSlugManuallyEdited = ref(false)
 const localizedSlugState = reactive<
@@ -402,6 +413,12 @@ function buildLocalizedData(source: Record<string, unknown>): JsonObject | undef
 const createMutation = useConvexMutation(api.ginkoCms.editor.createEntry)
 async function handleCreate(publish = false) {
   if (!contractWritable.value) return
+  const flushResult = await richtextFlush.flush()
+  if (!flushResult.ok) {
+    error.value = flushResult.error.message
+    return
+  }
+  await nextTick()
   submitted.value = true
   if (validationErrors.value.length > 0) {
     for (const fieldError of validationErrors.value) {
@@ -466,6 +483,22 @@ async function handleCreate(publish = false) {
   }
 }
 
+onBeforeRouteLeave(async () => {
+  const flushResult = await richtextFlush.flush()
+  if (!flushResult.ok) {
+    error.value = flushResult.error.message
+    return false
+  }
+  await nextTick()
+  if (!isDirty.value) return true
+  return studioConfirm({
+    title: 'Leave with unsaved changes?',
+    description: t('ginkoCms.studio.collectionEditor.unsavedChanges'),
+    confirmLabel: 'Leave page',
+    confirmVariant: 'destructive',
+  })
+})
+
 if (typeof window !== 'undefined') {
   const keyboardSaveHandler = (event: KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's' && !saving.value) {
@@ -473,9 +506,16 @@ if (typeof window !== 'undefined') {
       void handleCreate(false)
     }
   }
+  const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
+    if (!richtextFlush.hasPending.value && !isDirty.value) return
+    event.preventDefault()
+    event.returnValue = ''
+  }
   window.addEventListener('keydown', keyboardSaveHandler)
+  window.addEventListener('beforeunload', beforeUnloadHandler)
   onBeforeUnmount(() => {
     window.removeEventListener('keydown', keyboardSaveHandler)
+    window.removeEventListener('beforeunload', beforeUnloadHandler)
   })
 }
 </script>

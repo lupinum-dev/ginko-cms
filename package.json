@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:editor-candidates": "node scripts/setup-editor-candidates.mjs",
     "build": "pnpm --filter @lupinum/ginko-cms build",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:publish-specifiers && pnpm run test",
     "prepare:component": "pnpm --filter @lupinum/ginko-cms-convex prepare:component",

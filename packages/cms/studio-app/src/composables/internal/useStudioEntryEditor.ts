@@ -1,5 +1,6 @@
 import { reactive, type Ref } from 'vue'
 
+import { provideStudioRichtextFlush } from './studioRichtextFlush'
 import type { StudioEntry } from './types'
 import { useEntryDraft } from './useEntryDraft'
 import { useEntryHistory } from './useEntryHistory'
@@ -13,6 +14,7 @@ import { useStudioEntryWorkflow } from './useStudioEntryWorkflow'
 // circular reference (its return type feeds `workflow`, which is added on top of
 // this base). Consumers use StudioEntryEditorContext (base + workflow).
 function createStudioEntryEditorContextBase() {
+  const richtextFlush = provideStudioRichtextFlush()
   const loader = useEntryLoader()
   const entry = loader.entry as Ref<StudioEntry | null>
 
@@ -33,6 +35,7 @@ function createStudioEntryEditorContextBase() {
     t: loader.t,
     initialized: loader.initialized,
     refreshEntry: loader.refreshEntry,
+    richtextFlush,
   })
 
   const locales = useEntryLocales({
@@ -103,6 +106,7 @@ function createStudioEntryEditorContextBase() {
     locales,
     history,
     publishing,
+    richtextFlush,
   })
 }
 
