@@ -94,6 +94,7 @@ function localeFixture() {
   const saving = ref(false)
   const error = ref('')
   const dirty = ref(false)
+  const flush = vi.fn(async () => ({ emitted: false, ok: true as const }))
   const scope = effectScope()
   const subject = scope.run(() =>
     useEntryLocales({
@@ -112,6 +113,12 @@ function localeFixture() {
       saving,
       error,
       isDirty: dirty,
+      richtextFlush: {
+        hasPending: ref(false),
+        register: vi.fn(),
+        setPending: vi.fn(),
+        flush,
+      },
       form: { slug: 'reliability' },
       handleSaveDraft: save,
       cancelAutoSave,
@@ -128,10 +135,46 @@ function localeFixture() {
     save,
     refreshEntry,
     cancelAutoSave,
+    flush,
   }
 }
 
 describe('missing translation workflow', () => {
+  it('flushes visual editor changes before deciding whether a locale switch needs saving', async () => {
+    const fixture = localeFixture()
+    fixture.flush.mockImplementationOnce(async () => {
+      fixture.dirty.value = true
+      return { emitted: true, ok: true as const }
+    })
+    try {
+      await fixture.subject.handleSwitchLocale('de')
+      expect(fixture.flush).toHaveBeenCalledOnce()
+      expect(fixture.save).toHaveBeenCalledWith(true)
+      expect(fixture.push).toHaveBeenCalledOnce()
+    } finally {
+      fixture.scope.stop()
+    }
+  })
+
+  it('keeps locale panels mounted when their pending editor cannot flush', async () => {
+    const fixture = localeFixture()
+    fixture.flush.mockResolvedValue({
+      emitted: false,
+      ok: false as const,
+      error: new Error('Invalid richtext'),
+    })
+    fixture.subject.translationMode.value = true
+    const secondary = fixture.subject.secondaryLocale.value
+    try {
+      await expect(fixture.subject.setTranslationMode(false)).resolves.toBe(false)
+      await expect(fixture.subject.handleSelectSecondaryLocale('fr')).resolves.toBe(false)
+      expect(fixture.subject.translationMode.value).toBe(true)
+      expect(fixture.subject.secondaryLocale.value).toBe(secondary)
+    } finally {
+      fixture.scope.stop()
+    }
+  })
+
   it('[LOC-02] never creates a locale by selecting it and sends the explicit blank or chosen copy source only after confirmation', async () => {
     const fixture = localeFixture()
     try {

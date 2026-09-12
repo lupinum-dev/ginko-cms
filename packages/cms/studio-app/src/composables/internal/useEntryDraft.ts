@@ -5,7 +5,7 @@ import { buildCmsFieldData } from '@public/utils/cmsFields'
 import type { FunctionArgs } from 'convex/server'
 import type { Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 
 import { api } from '../../boundary/api'
 import { useConvexMutation } from '../useStudioConvex'
@@ -251,7 +251,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   })
 
   // --- Unsaved changes guards ---
-  onBeforeRouteLeave(async () => {
+  async function guardUnsavedRouteChange() {
     const flushResult = await richtextFlush.flush()
     if (!flushResult.ok) {
       error.value = flushResult.error.message
@@ -270,7 +270,10 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       })
     }
     return true
-  })
+  }
+
+  onBeforeRouteLeave(guardUnsavedRouteChange)
+  onBeforeRouteUpdate(guardUnsavedRouteChange)
 
   const offlineRetry = new OfflineSaveRetry()
 

@@ -41,19 +41,20 @@ function hasLocaleDraft(code: string) {
   )
 }
 
-function toggleMode(compare: boolean) {
-  editor.locales.setTranslationMode(compare)
-  if (compare && !editor.locales.secondaryLocale && secondaryLocale.value) {
-    editor.locales.handleSelectSecondaryLocale(secondaryLocale.value)
+async function toggleMode(compare: boolean) {
+  const changed = await editor.locales.setTranslationMode(compare)
+  if (changed && compare && !editor.locales.secondaryLocale && secondaryLocale.value) {
+    await editor.locales.handleSelectSecondaryLocale(secondaryLocale.value)
   }
 }
 
-function swapLocales() {
+async function swapLocales() {
   const right = editor.locales.secondaryLocale
   if (!right || right === editor.loader.currentLocale) return
   const left = editor.loader.currentLocale
-  editor.locales.handleSwitchLocale(right)
-  editor.locales.handleSelectSecondaryLocale(left)
+  if (await editor.locales.handleSwitchLocale(right)) {
+    await editor.locales.handleSelectSecondaryLocale(left)
+  }
 }
 </script>
 
