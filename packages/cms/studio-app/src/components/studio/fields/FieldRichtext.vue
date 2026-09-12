@@ -296,7 +296,6 @@ function onConversionRecovered() {
         :placeholder="field.description || t('ginkoCms.studio.fieldRenderer.richtextPlaceholder')"
         :enable-files="!!assetContext"
         :enable-image-metadata="!!assetContext"
-        image-output="markdown"
         :enable-video="true"
         :disabled="props.disabled === true"
         :aria-invalid="fieldError ? true : undefined"
