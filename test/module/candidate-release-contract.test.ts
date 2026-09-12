@@ -148,13 +148,13 @@ describe('coordinated CMS candidate release contract', () => {
     expect(packageJson.scripts['package:e2e:local-content']).toBe(
       'node scripts/package-e2e.mjs --local-content',
     )
-    expect(packageJson.scripts['package:e2e:local-content:npm']).toBe(
-      'node scripts/package-e2e.mjs --local-content --package-manager npm',
-    )
+    expect(packageJson.scripts['package:e2e:local-content:npm']).toBeUndefined()
     expect(source).toContain("localContentMode ? '.pack/local-content'")
     expect(source).toContain('GINKO_CONTENT_ARTIFACT')
     expect(source).toContain('evidence.releaseEligible !== true')
     expect(source).toContain('source: localContentMode ? { commit: localCmsCommit, dirty: false }')
+    expect(source).toContain("yamlQuote('@lupinum/ginko-content')")
+    expect(source).toContain('local Content lane is pnpm-only')
     expect(source).toContain('lane: candidateMode')
     expect(source).toContain("'local-content-candidate'")
   })

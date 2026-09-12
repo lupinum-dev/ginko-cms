@@ -618,6 +618,14 @@ function writeConsumerWorkspaceConfig(cwd, overrides) {
     lines.push(`  ${yamlQuote(name)}: ${yamlQuote(specifier)}`)
   }
 
+  if (localContentMode) {
+    lines.push(
+      'peerDependencyRules:',
+      '  allowedVersions:',
+      `    ${yamlQuote('@lupinum/ginko-content')}: ${yamlQuote(localContent.version)}`,
+    )
+  }
+
   writeFileSync(join(cwd, 'pnpm-workspace.yaml'), `${lines.join('\n')}\n`, 'utf8')
 }
 
@@ -1274,6 +1282,11 @@ console.log('packed MCP read/write behavior ok')
     }
   }
   if ((candidateMode || localContentMode) && consumerPackageManager === 'npm') {
+    if (localContentMode) {
+      throw new Error(
+        'The local Content lane is pnpm-only because npm cannot bind peer acceptance to the attested archive bytes.',
+      )
+    }
     const lockfile = JSON.parse(consumerLockfile)
     for (const name of [
       '@lupinum/ginko-cms',
