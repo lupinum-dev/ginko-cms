@@ -114,6 +114,11 @@ describe('editor conversionPipeline', () => {
       ]),
       type: 'doc',
     })
+    const serialized = await convertTiptapDocToMarkdown(editor.getJSON())
+    expect(serialized.ok).toBe(true)
+    if (!serialized.ok) throw new Error('Expected editor document to serialize.')
+    expect(serialized.value).toContain('<Badge>outer <Token>inner</Token></Badge>')
+    expect(serialized.value).toContain('<template #actions>')
 
     editor.destroy()
   })
