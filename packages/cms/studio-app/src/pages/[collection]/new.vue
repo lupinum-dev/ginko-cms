@@ -72,6 +72,7 @@ const stagedAssetIds = ref<string[]>([])
 const submitted = ref(false)
 const saving = ref(false)
 const error = ref('')
+const createdEntryId = ref('')
 const isDirty = computed(
   () =>
     stagedAssetIds.value.length > 0 ||
@@ -413,6 +414,15 @@ function buildLocalizedData(source: Record<string, unknown>): JsonObject | undef
 const createMutation = useConvexMutation(api.ginkoCms.editor.createEntry)
 async function handleCreate(publish = false) {
   if (!contractWritable.value) return
+  if (createdEntryId.value) {
+    await studioDebug.pushWithLogging(
+      router,
+      `${contentRoute}/${collection.value}/${createdEntryId.value}`,
+      'open-created-entry',
+      { collection: collection.value, entryId: createdEntryId.value, publish },
+    )
+    return
+  }
   const flushResult = await richtextFlush.flush()
   if (!flushResult.ok) {
     error.value = flushResult.error.message
@@ -456,6 +466,10 @@ async function handleCreate(publish = false) {
       ...(isTree.value ? { nodeKind: form.kind as NodeKind } : {}),
       ...(isTree.value && form.parentEntryId ? { parentEntryId: form.parentEntryId } : {}),
     })
+    // The create mutation owns this form now. Record that transition before
+    // navigation so the leave guard cannot block a successful create or allow
+    // a second submit if client-side navigation itself fails.
+    createdEntryId.value = entryId
     stagedAssetIds.value = []
     studioDebug.debug('create:success', { collection: collection.value, publish, entryId })
     // Per Gate -1: create-and-publish previously bypassed the preview/readiness
@@ -490,7 +504,7 @@ onBeforeRouteLeave(async () => {
     return false
   }
   await nextTick()
-  if (!isDirty.value) return true
+  if (createdEntryId.value || !isDirty.value) return true
   return studioConfirm({
     title: 'Leave with unsaved changes?',
     description: t('ginkoCms.studio.collectionEditor.unsavedChanges'),
@@ -507,7 +521,7 @@ if (typeof window !== 'undefined') {
     }
   }
   const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
-    if (!richtextFlush.hasPending.value && !isDirty.value) return
+    if (createdEntryId.value || (!richtextFlush.hasPending.value && !isDirty.value)) return
     event.preventDefault()
     event.returnValue = ''
   }

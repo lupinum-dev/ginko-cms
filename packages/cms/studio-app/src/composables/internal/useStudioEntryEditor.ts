@@ -54,6 +54,7 @@ function createStudioEntryEditorContextBase() {
     saving: draft.saving,
     error: draft.error,
     isDirty: draft.isDirty,
+    richtextFlush,
     form: draft.form,
     handleSaveDraft: draft.handleSaveDraft,
     cancelAutoSave: draft.cancelAutoSave,

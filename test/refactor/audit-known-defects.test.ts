@@ -238,7 +238,11 @@ describe('known audit defects', () => {
   it('[EDT-04] keeps pending and failed draft work guarded until backend save success', () => {
     const draft = source('packages/cms/studio-app/src/composables/internal/useEntryDraft.ts')
     const initialHydration = section(draft, '// Initial load', '// Re-hydrate')
-    const routeGuard = section(draft, 'onBeforeRouteLeave(', 'const offlineRetry')
+    const routeGuard = section(
+      draft,
+      'async function guardUnsavedRouteChange()',
+      'const offlineRetry',
+    )
     const browserGuard = section(
       draft,
       'const beforeUnloadHandler = (event: BeforeUnloadEvent) => {',
@@ -251,6 +255,7 @@ describe('known audit defects', () => {
     expect(routeGuard).not.toContain('!saving.value')
     expect(routeGuard).toContain('return studioConfirm({')
     expect(routeGuard).toContain('return true')
+    expect(draft).toContain('onBeforeRouteUpdate(guardUnsavedRouteChange)')
     expect(routeGuard).not.toContain('next(')
     expect(browserGuard).toContain('if (isDirty.value || richtextFlush.hasPending.value)')
     expect(browserGuard).toContain('event.preventDefault()')
@@ -261,6 +266,18 @@ describe('known audit defects', () => {
     expect(initialHydration).toContain('watch(')
     expect(initialHydration).toContain('[entry, collectionConfig]')
     expect(initialHydration).toContain('if (value && config && !initialized.value)')
+  })
+
+  it('does not guard or duplicate a create after the backend accepted ownership', () => {
+    const createPage = source('packages/cms/studio-app/src/pages/[collection]/new.vue')
+    const createFlow = section(createPage, 'async function handleCreate(', 'onBeforeRouteLeave(')
+
+    expect(createFlow).toContain('if (createdEntryId.value)')
+    expect(createFlow).toContain('createdEntryId.value = entryId')
+    expect(createFlow.indexOf('createdEntryId.value = entryId')).toBeLessThan(
+      createFlow.indexOf("'create-entry'"),
+    )
+    expect(createPage).toContain('if (createdEntryId.value || !isDirty.value) return true')
   })
 
   it('keeps standalone Studio components on direct, warning-free Vue contracts', () => {
