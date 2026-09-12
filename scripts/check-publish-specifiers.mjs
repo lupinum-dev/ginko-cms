@@ -102,7 +102,9 @@ function collectPackageJsonFiles(directory) {
     const fullPath = join(directory, entry)
     const stats = statSync(fullPath)
     if (stats.isDirectory()) {
-      if (['.git', '.nuxt', '.output', '.pack', 'dist', 'node_modules'].includes(entry)) {
+      if (
+        ['.git', '.nuxt', '.output', '.pack', '.candidate', 'dist', 'node_modules'].includes(entry)
+      ) {
         continue
       }
       entries.push(...collectPackageJsonFiles(fullPath))

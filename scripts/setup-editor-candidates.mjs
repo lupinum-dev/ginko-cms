@@ -97,7 +97,7 @@ execFileSync(
     candidateRoot,
     '--ignore-workspace',
     '--ignore-scripts',
-    '--strict-peer-dependencies=false',
+    '--strict-peer-dependencies',
   ],
   { stdio: 'inherit' },
 )
