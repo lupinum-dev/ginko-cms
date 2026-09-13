@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import axe from 'axe-core'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive, ref } from 'vue'
@@ -65,6 +65,25 @@ function installTestLocalStorage(): () => void {
     delete (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage
   }
 }
+
+vi.mock(
+  '../../packages/cms/studio-app/src/components/studio/fields/StudioRichtextImageLibrary.vue',
+  () => ({
+    default: defineComponent({
+      name: 'StudioRichtextImageLibrary',
+      setup(_, { emit, expose }) {
+        expose({
+          pick: async () => {
+            emit('resolved', 'newly-selected-asset', 'https://example.com/new-image.png')
+            return { id: 'newly-selected-asset', url: 'https://example.com/new-image.png' }
+          },
+          upload: vi.fn(),
+        })
+        return () => h('div')
+      },
+    }),
+  }),
+)
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () => ({
   useCmsStudioQuery: () => ({
@@ -1435,25 +1454,12 @@ describe('Studio workflow components', () => {
       },
     })
     try {
+      await flushPromises()
       const shared = wrapper.findComponent({ name: 'GinkoEditor' })
       const provider = shared.props('assetProvider')
-      let resolvedAtCompletion = ''
-      shared.vm.$emit('request-image', {
-        complete: () => {
-          resolvedAtCompletion = provider.buildUrl({ id: 'newly-selected-asset' })
-          return true
-        },
-      })
-      const picker = wrapper
-        .findAllComponents({ name: 'StudioAssetPicker' })
-        .find((item) => item.props('kind') === 'image')!
-      picker.vm.$emit('select-asset', {
-        _id: 'newly-selected-asset',
-        url: 'https://example.com/new-image.png',
-        filename: 'new-image.png',
-        mimeType: 'image/png',
-      })
-      expect(resolvedAtCompletion).toBe('https://example.com/new-image.png')
+      const chosen = await shared.props('imagePicker')({ signal: new AbortController().signal })
+      expect(chosen.id).toBe('newly-selected-asset')
+      expect(provider.buildUrl({ id: chosen.id })).toBe('https://example.com/new-image.png')
       expect(shared.props('enableVideo')).toBe(false)
     } finally {
       wrapper.unmount()

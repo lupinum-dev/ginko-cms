@@ -245,6 +245,8 @@ declare module 'vue' {
     StudioReviewDetail: typeof import('./src/components/studio/reviews/StudioReviewDetail.vue')['default']
     StudioReviewDetailsPanel: typeof import('./src/components/studio/reviews/StudioReviewDetailsPanel.vue')['default']
     StudioReviewWebsiteChanges: typeof import('./src/components/studio/reviews/StudioReviewWebsiteChanges.vue')['default']
+    StudioRichtextImageLibrary: typeof import('./src/components/studio/fields/StudioRichtextImageLibrary.vue')['default']
+    StudioRichtextPreview: typeof import('./src/components/studio/fields/StudioRichtextPreview.vue')['default']
     StudioSection: typeof import('./src/components/studio/StudioSection.vue')['default']
     StudioSegmentedControl: typeof import('./src/components/studio/StudioSegmentedControl.vue')['default']
     StudioSettingsAppearanceSection: typeof import('./src/components/studio/settings/StudioSettingsAppearanceSection.vue')['default']

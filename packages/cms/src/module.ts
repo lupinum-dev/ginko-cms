@@ -14,6 +14,8 @@ import {
   addServerHandler,
   createResolver,
   addComponentsDir,
+  addTemplate,
+  addTypeTemplate,
   extendPages,
 } from '@nuxt/kit'
 import type { Nuxt, NuxtModule } from '@nuxt/schema'
@@ -33,6 +35,7 @@ import {
 } from './module/i18n.js'
 import type { I18nModuleOptions } from './module/i18n.js'
 import type { ModuleOptions, ResolvedModuleOptions } from './module/options.js'
+import { readerComponentTemplate } from './module/reader-components.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
 import { createTailwindPlugin } from './module/tailwind.js'
 import { OPERATOR_CONVEX_TOKEN_ROUTE } from './server/utils/operator-token-contract.js'
@@ -193,6 +196,18 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   async setup(moduleInput, nuxt) {
     assertModuleOptionKeys(moduleInput)
     const options = { ...moduleInput } as ResolvedModuleOptions
+    const readerTemplate = addTemplate({
+      filename: 'ginko-cms-reader-components.mjs',
+      getContents: ({ app }) => readerComponentTemplate(options.editorialLayout, app.components),
+    })
+    nuxt.options.alias['#ginko-cms-reader-components'] = readerTemplate.dst
+    addTypeTemplate({
+      filename: 'types/ginko-cms-reader-components.d.ts',
+      getContents: () => `declare module '#ginko-cms-reader-components' {
+  const components: Record<string, import('vue').Component>
+  export default components
+}`,
+    })
     const { resolve: moduleResolve } = createResolver(import.meta.url)
     const moduleOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
     registerCmsContentProvider(nuxt)

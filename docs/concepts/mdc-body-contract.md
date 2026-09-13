@@ -39,6 +39,26 @@ Studio uses the shared Ginko Editor MDC workflow:
 - `FieldRichtext.vue` owns CMS assets, permissions, draft values, and metadata dialogs.
 - Conversion and lifecycle regressions live in the Editor repository; CMS keeps host-adapter tests.
 
+## Studio reader preview
+
+Rich-text Preview uses Ginko Content's renderer and the collection's authoring
+policy. The Nuxt module imports only client-capable components named in
+`editorialLayout.collections[collection].authoring.implementation`. Register those
+components through Nuxt's normal component directories or module hooks; a
+separate Studio component registry is unnecessary.
+
+The host mounts each preview with its own Vue runtime and application context,
+so reader injections and reactive state work. Studio passes detached parsed body,
+policy, component names and locale through the existing host bridge. Closing the
+field or leaving Studio destroys the preview. Missing implementations and reader
+errors produce a visible message; a corrected source can recover the preview.
+
+CMS resolves only media references recognized by Content. Updated asset URLs,
+including unavailable assets, take precedence over a URL remembered by the
+picker. Uploads and library selection use the existing CMS asset ownership and
+registration workflow. Source stores stable references, never temporary preview
+URLs.
+
 ## Storage And Projection Model
 
 Editable/admin state:

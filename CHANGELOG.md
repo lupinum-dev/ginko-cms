@@ -17,6 +17,10 @@
 
 ### Added
 
+- Rich-text image uploads and library browsing share the Editor's controlled
+  picker. Preview renders native Markdown and collection reader components in
+  the host Vue context, with locale updates, error recovery and cleanup.
+
 - Studio: archived entries can be restored — the archived notice gains a
   "Restore draft" action and the entry-actions menu offers Restore instead of
   Archive on archived entries (`restoreEntry` joined the Studio API surface).

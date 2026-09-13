@@ -6,6 +6,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [vue()],
   test: {
+    server: { deps: { inline: ['@lupinum/ginko-content'] } },
     include:
       process.env.GINKO_CMS_PACKAGE_CONSUMER_TEST === '1'
         ? ['test/module/e2e-package-consumer.test.ts']
