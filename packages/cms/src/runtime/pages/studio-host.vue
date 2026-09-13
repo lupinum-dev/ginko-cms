@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import { getCurrentInstance, onBeforeUnmount } from 'vue'
+
 import { api } from '#convex/api'
-import type { GinkoCmsPublicConfig, GinkoCmsStudioHostBridge } from '#ginko-cms-public/types.js'
+import type {
+  GinkoCmsReaderPreview,
+  GinkoCmsPublicConfig,
+  GinkoCmsStudioHostBridge,
+} from '#ginko-cms-public/types.js'
+import readerComponents from '#ginko-cms-reader-components'
 // Catchall host page for /studio/* (everything except auth/signin and
 // auth/register, which are Nuxt-shipped pages registered before this).
 //
@@ -34,6 +41,7 @@ import {
 } from '#imports'
 
 import { buildStudioHostApi } from './studio-host-api'
+import { mountStudioReaderPreview } from './studio-reader-preview'
 
 const runtimeConfig = useRuntimeConfig()
 const requestUrl = useRequestURL()
@@ -41,6 +49,12 @@ const route = useRoute()
 const convexAuth = useConvexAuth()
 const convexAttachment = import.meta.client ? useConvexAttachment() : null
 const authListeners = new Set<() => void>()
+const readerContext = getCurrentInstance()!.appContext
+const readerPreviews = new Set<GinkoCmsReaderPreview>()
+onBeforeUnmount(() => {
+  for (const preview of readerPreviews) preview.destroy()
+  readerPreviews.clear()
+})
 
 function readAuthSnapshot() {
   const error = convexAuth.error.value
@@ -176,6 +190,21 @@ function populateBridge(): void {
     route: studioRoute.value,
   })
   const bridge: GinkoCmsStudioHostBridge = {
+    mountReaderPreview(target) {
+      const preview = mountStudioReaderPreview(target, readerContext, readerComponents, {
+        defaultLocale: cmsConfig.value.defaultLocale,
+        locales: cmsConfig.value.locales.map((locale) => locale.code),
+      })
+      const handle = {
+        update: preview.update,
+        destroy() {
+          preview.destroy()
+          readerPreviews.delete(handle)
+        },
+      }
+      readerPreviews.add(handle)
+      return handle
+    },
     attachment: convexAttachment!,
     config: cmsConfig.value,
     // The generated Convex api is per-consumer.

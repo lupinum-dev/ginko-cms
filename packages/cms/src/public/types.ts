@@ -10,6 +10,10 @@ import type {
   SlugMode,
 } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { ComponentApi as GinkoCmsComponentApi } from '@lupinum/ginko-cms-convex/component'
+import type {
+  ParseMdcBodyResult,
+  PortableComponentPolicy,
+} from '@lupinum/ginko-content/cms-contract'
 
 import type { GinkoCmsExpectedContractHashes } from './contract-compatibility.js'
 import type { StudioApiFromSurface, studioApiSurface } from './studio-api-surface.js'
@@ -88,7 +92,20 @@ export type GinkoCmsStudioHostApi = StudioApiFromSurface<
   GinkoCmsComponentApi
 >
 
+export interface GinkoCmsReaderPreviewInput {
+  body: ParseMdcBodyResult['body']
+  policy: PortableComponentPolicy
+  components: Record<string, string>
+  locale?: string
+}
+export interface GinkoCmsReaderPreview {
+  update: (input: GinkoCmsReaderPreviewInput) => void
+  destroy: () => void
+}
+
 export interface GinkoCmsStudioHostBridge {
+  /** Host-owned rendering; only detached document data crosses Vue runtimes. */
+  mountReaderPreview?: (target: HTMLElement) => GinkoCmsReaderPreview
   /** Frozen, token-free Better Convex attachment for the separately bundled SPA. */
   attachment: BetterConvexAttachment
   config: GinkoCmsPublicConfig
