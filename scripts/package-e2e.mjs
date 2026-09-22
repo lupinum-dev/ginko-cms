@@ -22,6 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse as parseYaml } from 'yaml'
 
 import { validateDisposableConvexDeployment } from './disposable-convex-deployment.mjs'
+import { clearPackageE2eOutputs } from './package-e2e-outputs.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const compatibilityMatrix = JSON.parse(
@@ -647,8 +648,7 @@ try {
   if (!candidateMode) {
     buildPackedPackages()
 
-    rmSync(packDir, { force: true, recursive: true })
-    mkdirSync(packDir, { recursive: true })
+    clearPackageE2eOutputs(packDir)
 
     packPackage('packages/contract')
     packPackage('packages/convex')
