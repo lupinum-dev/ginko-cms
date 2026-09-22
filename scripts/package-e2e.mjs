@@ -185,6 +185,9 @@ function requireCandidateArtifact(pathVariable, packageName) {
 const candidateContent = candidateMode
   ? requireCandidateArtifact('GINKO_CONTENT_TARBALL', '@lupinum/ginko-content')
   : undefined
+// Editor is compiled into Studio; retain its build provenance without adding
+// an Editor dependency to the consumer website.
+if (candidateMode) requireCandidateArtifact('GINKO_EDITOR_TARBALL', '@lupinum/ginko-editor')
 const candidateBetterConvexNuxt = candidateMode
   ? requireCandidateArtifact('BETTER_CONVEX_NUXT_TARBALL', '@lupinum/better-convex-nuxt')
   : undefined

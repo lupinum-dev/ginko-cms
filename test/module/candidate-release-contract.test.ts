@@ -1,4 +1,8 @@
-import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { runInNewContext } from 'node:vm'
 
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
@@ -176,6 +180,123 @@ describe('coordinated CMS candidate release contract', () => {
     expect(source).not.toContain("['rev-parse', 'HEAD'], root")
     expect(source).not.toContain('assertClean(content')
     expect(source).not.toContain('assertClean(betterConvex')
+  })
+
+  it('records and verifies every approved upstream archive, including the bundled Editor', () => {
+    const compatibility = readJson<{ releaseArtifacts: Record<string, unknown> }>(
+      'packages/cms/compatibility.json',
+    )
+    const expected = Object.keys(compatibility.releaseArtifacts).sort()
+    const packing = readFileSync('scripts/candidate-pack.mjs', 'utf8')
+    const upstreamStart = packing.indexOf('const upstream = {')
+    const upstreamEnd = packing.indexOf("\nrun('pnpm'", upstreamStart)
+    // Execute only the artifact assembly with inert archive readers. This fails
+    // if a new approved build input is absent from the produced manifest.
+    const upstream: Record<string, unknown> = runInNewContext(
+      `${packing.slice(upstreamStart, upstreamEnd)}; upstream`,
+      {
+        nuxtEvidence: { runtimeFingerprint: 'test-fingerprint' },
+        upstreamTarball: (name: string, variable: string) => `${variable}/${name}.tgz`,
+        requireUpstreamTarball: (name: string, path: string) => ({ name, path }),
+      },
+    )
+    expect(Object.keys(upstream).sort()).toEqual(expected)
+    expect(upstream['@lupinum/ginko-editor']).toEqual({
+      name: '@lupinum/ginko-editor',
+      path: 'GINKO_EDITOR_TARBALL/@lupinum/ginko-editor.tgz',
+    })
+
+    const verification = readFileSync('scripts/package-e2e.mjs', 'utf8')
+    const reads: string[] = []
+    const verificationStart = verification.indexOf('const candidateContent =')
+    const verificationEnd = verification.indexOf('function packageE2eEnv()', verificationStart)
+    runInNewContext(verification.slice(verificationStart, verificationEnd), {
+      candidateMode: true,
+      requireCandidateArtifact: (_variable: string, name: string) => {
+        reads.push(name)
+        return { path: `${name}.tgz` }
+      },
+    })
+    expect(reads.sort()).toEqual(expected)
+
+    const workflow = parse(readFileSync('.github/workflows/release-candidate.yml', 'utf8'))
+    const sourceSteps = workflow.jobs['verify-source'].steps
+    expect(sourceSteps.find((step: { id?: string }) => step.id === 'tuple').run).toContain(
+      "['editor','@lupinum/ginko-editor']",
+    )
+    expect(
+      sourceSteps.find(
+        (step: { name?: string }) => step.name === 'Download the exact registry artifacts',
+      ).run,
+    ).toContain(
+      'npm pack "@lupinum/ginko-editor@${{ steps.tuple.outputs.editor }}" --pack-destination .pack/upstream',
+    )
+    const packSteps = workflow.jobs['pack-candidate'].steps
+    expect(packSteps.find((step: { id?: string }) => step.id === 'artifacts').run).toContain(
+      "['editor','@lupinum/ginko-editor','lupinum-ginko-editor-']",
+    )
+    expect(
+      packSteps.find(
+        (step: { name?: string }) => step.name === 'Pack the coordinated Ginko candidate once',
+      ).env.GINKO_EDITOR_TARBALL,
+    ).toBe('${{ steps.artifacts.outputs.editor }}')
+  })
+
+  it('rejects missing or mismatched bundled Editor candidate evidence and archive bytes', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ginko-editor-candidate-proof-'))
+    try {
+      const name = '@lupinum/ginko-editor'
+      const archive = join(directory, 'editor.tgz')
+      const manifestPath = join(directory, 'candidate-artifact.json')
+      const bytes = 'immutable Editor fixture bytes'
+      const expectedHash = createHash('sha256').update(bytes).digest('hex')
+      const expected = {
+        sha256: expectedHash,
+        sourceCommit: 'a'.repeat(40),
+        integrity: 'fixture-sri',
+      }
+      const record = {
+        sha256: expectedHash,
+        commit: expected.sourceCommit,
+        integrity: expected.integrity,
+        tarball: 'editor.tgz',
+      }
+      writeFileSync(archive, bytes)
+      writeFileSync(manifestPath, JSON.stringify({ artifacts: { [name]: record } }))
+      const source = readFileSync('scripts/package-e2e.mjs', 'utf8')
+      const start = source.indexOf('function requireCandidateArtifact(')
+      const end = source.indexOf('const candidateContent =', start)
+      const verify = (artifacts: Record<string, unknown>) => {
+        const readArtifact: (variable: string, packageName: string) => unknown = runInNewContext(
+          `${source.slice(start, end)}; requireCandidateArtifact`,
+          {
+            compatibilityMatrix: { releaseArtifacts: { [name]: expected } },
+            candidateArtifactPath: manifestPath,
+            candidateArtifact: { artifacts },
+            packDir: directory,
+            existsSync,
+            resolve,
+            process: { env: {} },
+            sha256: (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex'),
+          },
+        )
+        return readArtifact('GINKO_EDITOR_TARBALL', name)
+      }
+      expect(verify({ [name]: record })).toMatchObject({ path: archive, sha256: expectedHash })
+      expect(() => verify({})).toThrow('Candidate evidence does not match compatibility')
+      expect(() => verify({ [name]: { ...record, sha256: 'b'.repeat(64) } })).toThrow(
+        'Candidate evidence does not match compatibility',
+      )
+      expect(() => verify({ [name]: { ...record, commit: 'b'.repeat(40) } })).toThrow(
+        'Candidate evidence does not match compatibility',
+      )
+      rmSync(archive)
+      expect(() => verify({ [name]: record })).toThrow('must reference the recorded')
+      writeFileSync(archive, 'changed Editor bytes')
+      expect(() => verify({ [name]: record })).toThrow('SHA-256 mismatch')
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 
   it('retains an exact candidate consumer only through the explicit live command', () => {

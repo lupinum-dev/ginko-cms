@@ -196,6 +196,10 @@ const upstream = {
     '@lupinum/ginko-content',
     upstreamTarball('@lupinum/ginko-content', 'GINKO_CONTENT_TARBALL'),
   ),
+  '@lupinum/ginko-editor': requireUpstreamTarball(
+    '@lupinum/ginko-editor',
+    upstreamTarball('@lupinum/ginko-editor', 'GINKO_EDITOR_TARBALL'),
+  ),
   '@lupinum/better-convex-vue': {
     ...requireUpstreamTarball(
       '@lupinum/better-convex-vue',

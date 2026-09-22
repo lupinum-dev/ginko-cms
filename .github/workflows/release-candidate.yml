@@ -40,12 +40,13 @@ jobs:
       - name: Resolve the canonical package tuple
         id: tuple
         run: |
-          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['content','@lupinum/ginko-content'],['mcp','@lupinum/better-convex-mcp'],['nuxt','@lupinum/better-convex-nuxt'],['vue','@lupinum/better-convex-vue']]) process.stdout.write(key+'='+matrix.releaseStack[name]+'\n')" >> "$GITHUB_OUTPUT"
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name] of [['content','@lupinum/ginko-content'],['editor','@lupinum/ginko-editor'],['mcp','@lupinum/better-convex-mcp'],['nuxt','@lupinum/better-convex-nuxt'],['vue','@lupinum/better-convex-vue']]) process.stdout.write(key+'='+matrix.releaseStack[name]+'\n')" >> "$GITHUB_OUTPUT"
 
       - name: Download the exact registry artifacts
         run: |
           mkdir -p .pack/upstream
           npm pack "@lupinum/ginko-content@${{ steps.tuple.outputs.content }}" --pack-destination .pack/upstream
+          npm pack "@lupinum/ginko-editor@${{ steps.tuple.outputs.editor }}" --pack-destination .pack/upstream
           npm pack "@lupinum/better-convex-mcp@${{ steps.tuple.outputs.mcp }}" --pack-destination .pack/upstream
           npm pack "@lupinum/better-convex-nuxt@${{ steps.tuple.outputs.nuxt }}" --pack-destination .pack/upstream
           npm pack "@lupinum/better-convex-vue@${{ steps.tuple.outputs.vue }}" --pack-destination .pack/upstream
@@ -98,7 +99,7 @@ jobs:
       - name: Resolve artifact paths
         id: artifacts
         run: |
-          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name,file] of [['content','@lupinum/ginko-content','lupinum-ginko-content-'],['mcp','@lupinum/better-convex-mcp','lupinum-better-convex-mcp-'],['nuxt','@lupinum/better-convex-nuxt','lupinum-better-convex-nuxt-'],['vue','@lupinum/better-convex-vue','lupinum-better-convex-vue-']]) process.stdout.write(key+'='+process.cwd()+'/.pack/upstream/'+file+matrix.releaseStack[name]+'.tgz\n')" >> "$GITHUB_OUTPUT"
+          node -e "const matrix=require('./packages/cms/compatibility.json'); for (const [key,name,file] of [['content','@lupinum/ginko-content','lupinum-ginko-content-'],['editor','@lupinum/ginko-editor','lupinum-ginko-editor-'],['mcp','@lupinum/better-convex-mcp','lupinum-better-convex-mcp-'],['nuxt','@lupinum/better-convex-nuxt','lupinum-better-convex-nuxt-'],['vue','@lupinum/better-convex-vue','lupinum-better-convex-vue-']]) process.stdout.write(key+'='+process.cwd()+'/.pack/upstream/'+file+matrix.releaseStack[name]+'.tgz\n')" >> "$GITHUB_OUTPUT"
 
       - name: Install the frozen Ginko dependency graph
         run: pnpm install --frozen-lockfile
@@ -109,6 +110,7 @@ jobs:
           BETTER_CONVEX_NUXT_TARBALL: ${{ steps.artifacts.outputs.nuxt }}
           BETTER_CONVEX_VUE_TARBALL: ${{ steps.artifacts.outputs.vue }}
           GINKO_CONTENT_TARBALL: ${{ steps.artifacts.outputs.content }}
+          GINKO_EDITOR_TARBALL: ${{ steps.artifacts.outputs.editor }}
         run: pnpm --config.verify-deps-before-run=warn run candidate:pack
 
       - name: Require the annotated full-proof approval for a release tag
