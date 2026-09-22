@@ -6,8 +6,20 @@ import { defineComponent, h, ref } from 'vue'
 import FieldRichtext from '../../packages/cms/studio-app/src/components/studio/fields/FieldRichtext.vue'
 
 const state = vi.hoisted(() => ({
+  mode: 'local',
   args: undefined as { value: unknown } | undefined,
   urls: undefined as { value: Record<string, string | null> } | undefined,
+}))
+vi.mock('../../packages/cms/studio-app/src/composables/internal/useSharedEntryBody', () => ({
+  useSharedEntryBody: () => ({
+    mode: ref(state.mode),
+    ready: ref(true),
+    session: ref(undefined),
+    state: ref(undefined),
+    mountKey: ref(0),
+    error: ref(''),
+    recoverySource: ref(''),
+  }),
 }))
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () => ({
   useCmsStudioQuery: (_query: unknown, args: { value: unknown }) => {
@@ -33,6 +45,36 @@ vi.mock(
 )
 
 describe('rich text asset query', () => {
+  it('keeps shared source previews out of the scalar form save path', async () => {
+    state.mode = 'shared'
+    const wrapper = mount(FieldRichtext, {
+      props: {
+        field: { key: 'body', type: 'richtext' },
+        modelValue: 'Before.',
+        label: 'Body',
+        fieldError: null,
+      },
+      global: {
+        stubs: {
+          StudioFieldShell: { template: '<div><slot /></div>' },
+          StudioAssetPicker: true,
+          StudioAssetMetadataDialog: true,
+        },
+      },
+    })
+    try {
+      await flushPromises()
+      const editor = wrapper.findComponent({ name: 'GinkoEditor' })
+      editor.vm.$emit('update:modelValue', 'Shared preview.')
+      await flushPromises()
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+      expect(editor.props('modelValue')).toBe('Shared preview.')
+    } finally {
+      wrapper.unmount()
+      state.mode = 'local'
+    }
+  })
+
   it('queries Content-recognized media, not asset-shaped prose, and keeps unchanged subscriptions stable', async () => {
     const wrapper = mount(FieldRichtext, {
       props: {

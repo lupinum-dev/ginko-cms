@@ -52,6 +52,18 @@ if (!['npm', 'pnpm'].includes(consumerPackageManager)) {
 }
 const developmentMode = process.argv.includes('--dev-sources')
 const registryDependencies = process.argv.includes('--registry-deps')
+// Until Editor's first registry release, the development lane certifies the
+// exact reviewed archive. Registry certification must resolve the real package.
+const editorCandidate = registryDependencies
+  ? undefined
+  : JSON.parse(readFileSync(resolve(repoRoot, 'internals/candidates/editor.json'), 'utf8'))
+if (editorCandidate) {
+  const actual = createHash('sha256')
+    .update(readFileSync(resolve(repoRoot, editorCandidate.archive)))
+    .digest('hex')
+  if (actual !== editorCandidate.sha256) throw new Error('Editor candidate digest mismatch.')
+}
+
 if (
   [candidateMode, developmentMode, registryDependencies, localContentMode].filter(Boolean)
     .length !== 1
@@ -812,6 +824,9 @@ try {
   const contractTarball = contentAddressedCopy(packedContractTarball)
   const convexTarball = contentAddressedCopy(packedConvexTarball)
   const cmsTarball = contentAddressedCopy(packedCmsTarball)
+  const installedEditorTarball = editorCandidate
+    ? contentAddressedCopy(resolve(repoRoot, editorCandidate.archive))
+    : undefined
   const installedContentTarball = contentTarball ? contentAddressedCopy(contentTarball) : undefined
   const installedBetterConvexMcpTarball =
     (candidateBetterConvexMcp?.path ?? betterConvexMcpTarball)
@@ -831,6 +846,9 @@ try {
         type: 'module',
         dependencies: {
           ...consumerCompatibility.dependencies,
+          '@lupinum/ginko-editor': installedEditorTarball
+            ? fileDependency(installedEditorTarball)
+            : '0.1.0',
           ...(liveConvex
             ? {
                 '@nuxtjs/sitemap': compatibilityMatrix.tracked['@nuxtjs/sitemap'][1],
@@ -848,6 +866,11 @@ try {
           '@lupinum/better-convex-vue': betterConvexVueDependency(betterConvexVueTarball),
         },
         devDependencies: consumerCompatibility.devDependencies,
+        ...(consumerPackageManager === 'npm' && installedEditorTarball
+          ? {
+              overrides: { '@lupinum/ginko-editor': '$@lupinum/ginko-editor' },
+            }
+          : {}),
       },
       null,
       2,
@@ -857,6 +880,9 @@ try {
 
   if (consumerPackageManager === 'pnpm') {
     writeConsumerWorkspaceConfig(tempDir, {
+      '@lupinum/ginko-editor': installedEditorTarball
+        ? fileDependency(installedEditorTarball)
+        : '0.1.0',
       '@lupinum/ginko-cms': fileDependency(cmsTarball),
       '@lupinum/ginko-cms-contract': fileDependency(contractTarball),
       '@lupinum/ginko-cms-convex': fileDependency(convexTarball),
@@ -1086,6 +1112,15 @@ try {
     run('npm', ['install', '--ignore-scripts', '--strict-peer-deps'], { cwd: tempDir })
   }
 
+  run(
+    'node',
+    [
+      '--input-type=module',
+      '-e',
+      "import {createCollaborationSnapshot} from '@lupinum/ginko-editor/runtime'; const result = await createCollaborationSnapshot('Packed shared body.', {epoch:'packed',policyRevision:'packed',policy:{version:2,components:{}}}); if(!result.snapshot.document.includes('Packed shared body.')) throw new Error('Packed editor runtime failed');",
+    ],
+    { cwd: tempDir },
+  )
   const vuePackagePath = join(tempDir, 'node_modules/vue/package.json')
   const vueRequire = createRequire(realpathSync(vuePackagePath))
   const vueOwners = new Map([

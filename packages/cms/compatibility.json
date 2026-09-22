@@ -4,7 +4,7 @@
     "@lupinum/ginko-cms": "0.2.0-rc.2",
     "@lupinum/ginko-cms-convex": "0.2.0-rc.2",
     "@lupinum/ginko-cms-contract": "0.2.0-rc.2",
-    "@lupinum/ginko-content": "1.0.0-beta.4",
+    "@lupinum/ginko-content": "1.0.0-beta.9",
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
     "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
     "@lupinum/better-convex-vue": "1.0.0-beta.3"
@@ -14,10 +14,10 @@
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "4ad58531c94a1eec54e6d4cf452de76f02b56fce",
-      "registry": "https://registry.npmjs.org/@lupinum/ginko-content/-/ginko-content-1.0.0-beta.4.tgz",
-      "sha256": "73ca6a9c49dd8e5ae5ce132db4ccdc8073a1323d446d2ca4671d35398bd45e63",
-      "integrity": "sha512-GhfjQd7/vKaQpdN3pYblAmAzGEy7jG5zawnOvYXeLDaO8Br3fO4yekjD7icTpxYZjVPEMC1w86X0mV1j5HyOTg=="
+      "sourceCommit": "05813676d352a50dee27d25af8a23144cd6049fd",
+      "registry": "https://registry.npmjs.org/@lupinum/ginko-content/-/ginko-content-1.0.0-beta.9.tgz",
+      "sha256": "7e44e287305c67a043edfb6e379d4600ba8a80c0dd539db75e1a41406cd79a81",
+      "integrity": "sha512-hnmrgqCv87BghCbrwzolBqASYzBkMgP9PbsTI2kkAZLTsaer6MFgw1yadVqdGcMdx8vWt/dn1+TaKkH21+M23g=="
     },
     "@lupinum/better-convex-mcp": {
       "sourceCommit": "596b085d5ccdbbabab97e7e57b915afdd0096bca",
@@ -46,7 +46,7 @@
     "@nuxt/kit": ["4.5.2"],
     "@better-auth/oauth-provider": ["1.7.2"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
-    "@lupinum/ginko-content": ["1.0.0-beta.4"],
+    "@lupinum/ginko-content": ["1.0.0-beta.9"],
     "better-auth": ["1.7.2"],
     "@lupinum/better-convex-nuxt": ["1.0.0-beta.3"],
     "@lupinum/better-convex-vue": ["1.0.0-beta.3"],
@@ -63,7 +63,7 @@
     "dependencies": {
       "@nuxt/kit": "4.5.2",
       "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-      "@lupinum/ginko-content": "1.0.0-beta.4",
+      "@lupinum/ginko-content": "1.0.0-beta.9",
       "better-auth": "1.7.2",
       "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
       "@lupinum/better-convex-vue": "1.0.0-beta.3",

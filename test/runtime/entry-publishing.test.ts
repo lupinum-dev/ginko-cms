@@ -49,6 +49,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
     saving: ref(false),
     error: ref(''),
     isDirty: ref(false),
+    hasUnsavedChanges: ref(false),
     form: { slug: 'hello-world' },
     handleSaveDraft: vi.fn(async () => true),
     buildSharedData: () => undefined,
@@ -194,6 +195,33 @@ describe('useEntryPublishing', () => {
     await publishing.confirmPublish()
 
     expect(mutationFns[0]).toHaveBeenCalledWith(expect.objectContaining({ expectedVersion: 7 }))
+  })
+
+  it('does not publish a clean scalar form when shared changes fail to flush', async () => {
+    const save = vi.fn(async () => false)
+    const publishing = useEntryPublishing(
+      createDeps({ handleSaveDraft: save, hasUnsavedChanges: ref(true) }),
+    )
+    markReadyToPublish(publishing)
+    await publishing.confirmPublish()
+    expect(save).toHaveBeenCalled()
+    expect(mutationFns[0]).not.toHaveBeenCalled()
+    expect(publishing.publishSession.readiness.state).not.toBe('ready')
+  })
+
+  it('requires another preview when flushing shared changes advances the canonical draft', async () => {
+    const version = ref(7)
+    const save = vi.fn(async () => {
+      version.value = 8
+      return true
+    })
+    const publishing = useEntryPublishing(
+      createDeps({ handleSaveDraft: save, hydratedDraftVersion: version }),
+    )
+    markReadyToPublish(publishing)
+    await publishing.confirmPublish()
+    expect(mutationFns[0]).not.toHaveBeenCalled()
+    expect(publishing.publishSession.readiness.state).not.toBe('ready')
   })
 
   it('shows archive impact per locale with the restore path and a non-destructive confirm', async () => {

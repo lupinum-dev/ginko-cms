@@ -12,6 +12,8 @@ const componentModules = [
   'draftPreview',
   'editor',
   'entries/draft',
+  'entries/collaboration',
+  'entries/collaborationCleanup',
   'entries/projectionMaintenance',
   'entries/publish',
   'entries/read',

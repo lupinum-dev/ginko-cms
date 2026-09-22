@@ -19,6 +19,7 @@ import { computed, onBeforeUnmount, ref, shallowRef, toRaw, useId, watch } from 
 import { api } from '../../../boundary/api'
 import { useOptionalStudioRichtextFlush } from '../../../composables/internal/studioRichtextFlush'
 import type { StudioAssetContext, StudioAssetRecord } from '../../../composables/internal/types'
+import { useSharedEntryBody } from '../../../composables/internal/useSharedEntryBody'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
 import StudioAssetMetadataDialog from '../StudioAssetMetadataDialog.vue'
@@ -42,11 +43,29 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useCmsI18n()
+const shared = useSharedEntryBody(
+  computed(() => props.assetContext),
+  computed(() => props.disabled === true),
+)
+const sharedPreviewSource = ref('')
+watch(
+  shared.mountKey,
+  () => {
+    sharedPreviewSource.value = typeof props.modelValue === 'string' ? props.modelValue : ''
+  },
+  { immediate: true },
+)
 const value = computed({
-  get: () => (typeof props.modelValue === 'string' ? props.modelValue : ''),
+  get: () =>
+    shared.mode.value === 'shared'
+      ? sharedPreviewSource.value
+      : typeof props.modelValue === 'string'
+        ? props.modelValue
+        : '',
   set: (v: string) => {
     if (props.disabled) return
-    emit('update:modelValue', v)
+    if (shared.mode.value === 'shared') sharedPreviewSource.value = v
+    else emit('update:modelValue', v)
   },
 })
 
@@ -167,10 +186,25 @@ const assetProvider: AssetProvider = {
   },
 }
 
-let unregisterEditor: (() => void) | undefined
-watch(editorRef, (handle) => {
-  unregisterEditor?.()
-  unregisterEditor = handle ? richtextFlush?.register(flushId, handle) : undefined
+const unregisterEditor = richtextFlush?.register(flushId, {
+  async flush() {
+    if (!shared.ready.value || !editorRef.value)
+      return {
+        ok: false,
+        error: {
+          code: 'collaboration_pending',
+          phase: 'validate',
+          recoverable: true,
+          message: shared.error.value || 'Wait for the body editor to open before continuing.',
+          traceId: 'cms-body',
+          issues: [],
+          timeline: [],
+        },
+      }
+    return editorRef.value.flush()
+  },
+  hasPendingChanges: () => !shared.ready.value || (editorRef.value?.hasPendingChanges() ?? false),
+  removeSelectedMedia: () => editorRef.value?.removeSelectedMedia() ?? false,
 })
 onBeforeUnmount(() => unregisterEditor?.())
 
@@ -299,10 +333,12 @@ function onConversionRecovered() {
       "
     >
       <RichtextEditor
-        v-if="editorReady"
+        v-if="editorReady && shared.ready.value"
         :id="field.key"
+        :key="shared.mountKey.value"
         ref="editorRef"
         v-model="value"
+        :collaboration="shared.session.value"
         :asset-provider="assetProvider"
         :authoring-kit="authoringKit"
         :aria-label="label"
@@ -322,9 +358,39 @@ function onConversionRecovered() {
         @request-file="assetContext ? openFilePicker($event) : $event.complete(null)"
       />
       <div
+        v-else-if="shared.mode.value === 'error'"
+        role="alert"
+        class="ginko:rounded-lg ginko:border ginko:p-4 ginko:space-y-3"
+      >
+        <p>{{ shared.error.value }}</p>
+        <Button variant="outline" size="sm" @click="shared.retry()">Retry</Button>
+        <Button
+          v-if="shared.recoverySource.value"
+          variant="outline"
+          size="sm"
+          @click="shared.keepRecoveryAndReopen()"
+        >
+          Download recovery and reopen
+        </Button>
+      </div>
+      <div
         v-else
+        role="status"
+        aria-label="Opening editor"
         class="ginko:min-h-[260px] ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
       />
+      <Button
+        v-if="
+          shared.state.value && ['stale', 'error', 'closed'].includes(shared.state.value.status)
+        "
+        variant="outline"
+        size="sm"
+        @click="shared.reopen()"
+      >
+        {{
+          shared.state.value.pendingSteps ? 'Download recovery and reopen' : 'Reopen shared body'
+        }}
+      </Button>
       <StudioAssetMetadataDialog
         v-if="assetContext && !disabled"
         :asset-id="metadataAssetId"

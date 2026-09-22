@@ -48,6 +48,15 @@ export const cmsRoleValidator = v.union(
 
 export const jsonValueValidator = createJsonValueValidator(8)
 
+// Content owns full contract validation at install, check, and transition entry.
+// Keep the transport envelope shallow: V2 property rules exceed the generic
+// JSON depth budget, and increasing recursive union depth grows deployment size.
+export const contentContractValidator = v.record(v.string(), v.any()) as Validator<
+  JsonObject,
+  'required',
+  string
+>
+
 export const jsonObjectValidator = v.record(v.string(), jsonValueValidator) as Validator<
   JsonObject,
   'required',

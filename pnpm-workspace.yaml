@@ -10,3 +10,7 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
   vue-demi: true
+
+# Temporary prepublication candidate; see internals/migrations.md.
+overrides:
+  '@lupinum/ginko-editor': file:internals/candidates/lupinum-ginko-editor-0.1.0.tgz

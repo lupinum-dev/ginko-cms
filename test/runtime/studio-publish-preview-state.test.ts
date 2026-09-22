@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { effectScope, reactive, ref } from 'vue'
+import { effectScope, reactive, ref, nextTick } from 'vue'
 
 import { useStudioEntryWorkflow } from '../../packages/cms/studio-app/src/composables/internal/useStudioEntryWorkflow'
 
@@ -98,6 +98,7 @@ function editorFixture() {
     },
     draft: {
       isDirty: false,
+      hasUnsavedChanges: false,
       saveConflict: false,
       error: '',
       lastHydratedVersion: 7,
@@ -136,7 +137,7 @@ describe('Studio publish preview state', () => {
     const scope = effectScope()
     const workflow = scope.run(() => useStudioEntryWorkflow(editor as never))!
 
-    const request = workflow.previewPublishImpact('en', { saveDraft: false })
+    const request = workflow.previewPublishImpact('en')
 
     expect(editor.publishing.publishSession.preview).toBeNull()
     expect(editor.publishing.publishSession.readiness.state).toBe('pending')
@@ -148,6 +149,40 @@ describe('Studio publish preview state', () => {
 
     expect(editor.publishing.publishSession.preview).toStrictEqual(freshPreview)
     expect(editor.publishing.publishSession.readiness.state).toBe('ready')
+    scope.stop()
+  })
+
+  it('stops before previewing when a shared body cannot flush even though scalar fields are clean', async () => {
+    const editor = editorFixture()
+    editor.draft.handleSaveDraft.mockResolvedValue(false)
+    editor.draft.error = 'Shared changes are not saved yet.'
+    const scope = effectScope()
+    const workflow = scope.run(() => useStudioEntryWorkflow(editor as never))!
+    const before = mocks.query.mock.calls.length
+    await workflow.previewPublishImpact('en')
+    expect(mocks.query.mock.calls.length).toBe(before)
+    expect(editor.publishing.publishSession.readiness.state).toBe('failed')
+    scope.stop()
+  })
+
+  it('does not install a preview response after new shared changes become pending', async () => {
+    const editor = editorFixture()
+    let resolve!: (value: ReturnType<typeof readinessDetail>) => void
+    mocks.query.mockReturnValueOnce(
+      new Promise<ReturnType<typeof readinessDetail>>((done) => {
+        resolve = done
+      }),
+    )
+    const scope = effectScope()
+    const workflow = scope.run(() => useStudioEntryWorkflow(editor as never))!
+    const request = workflow.previewPublishImpact('en')
+    await nextTick()
+    editor.draft.hasUnsavedChanges = true
+    await nextTick()
+    resolve(readinessDetail())
+    await request
+    expect(editor.publishing.publishSession.preview).toBeNull()
+    expect(editor.publishing.markPublishReadinessStale).toHaveBeenCalled()
     scope.stop()
   })
 })

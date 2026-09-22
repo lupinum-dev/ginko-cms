@@ -31,6 +31,11 @@ pnpm run check
 pnpm run release:verify
 ```
 
+Editor 0.1.0 is not yet published. The private workspace override uses the
+checksum-recorded archive in `internals/candidates`; `internals/migrations.md`
+records its removal condition. Public package manifests retain the registry
+version. Registry release verification does not substitute this archive.
+
 Ordinary CI checks out `sourceRehearsal.betterConvexCommit` only for the
 packed-source consumer. It does not inject an override into Ginko's dependency
 graph. The committed lockfile remains the sole source-install authority.

@@ -448,10 +448,13 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     }
   })
 
+  let draftRevision = 0
+  let previewRun = 0
   watch(
-    () => editor.draft.isDirty,
-    (dirty) => {
-      if (dirty) {
+    () => [editor.draft.hasUnsavedChanges, editor.draft.lastHydratedVersion] as const,
+    ([dirty, version], previous) => {
+      if (dirty || version !== previous?.[1]) {
+        draftRevision++
         publishSession.preview = null
         editor.publishing.markPublishReadinessStale()
         if (publishSession.impactRequested) publishSession.impactStale = true
@@ -461,8 +464,14 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
   )
 
   watch(
-    () => [editor.loader.currentLocale, publishSession.mode],
+    () => [
+      editor.loader.entryId,
+      editor.loader.currentLocale,
+      publishSession.mode,
+      publishSession.message,
+    ],
     () => {
+      draftRevision++
       publishSession.preview = null
       editor.publishing.markPublishReadinessStale('Publish scope changed after the last preview.')
       if (publishSession.impactRequested) publishSession.impactStale = true
@@ -500,7 +509,10 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     await previewPublishImpact(editor.loader.currentLocale)
   }
 
-  async function previewPublishImpact(locale?: string, options: { saveDraft?: boolean } = {}) {
+  async function previewPublishImpact(locale?: string) {
+    const run = ++previewRun
+    const entryScope = editor.loader.entryId
+    const localeScope = editor.loader.currentLocale
     clearReactiveRecord(publishImpactPagePending)
     clearReactiveRecord(publishImpactPageError)
     publishSession.preview = null
@@ -516,14 +528,17 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     }
     editor.publishing.setPublishReadiness({
       state: 'pending',
-      message:
-        options.saveDraft === false
-          ? 'Previewing website changes...'
-          : 'Saving draft and previewing website changes...',
+      message: 'Saving draft and previewing website changes...',
       locales: [],
     })
-    if (options.saveDraft !== false && editor.draft.isDirty) {
+    {
       const saved = await editor.draft.handleSaveDraft(true)
+      if (
+        run !== previewRun ||
+        entryScope !== editor.loader.entryId ||
+        localeScope !== editor.loader.currentLocale
+      )
+        return
       if (!saved) {
         // The save was refused because another session already advanced the
         // draft — the same conflict the top bar notice describes.
@@ -539,11 +554,21 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         return
       }
     }
+    if (
+      run !== previewRun ||
+      entryScope !== editor.loader.entryId ||
+      localeScope !== editor.loader.currentLocale
+    )
+      return
+    const revision = draftRevision
+    const isCurrent = () =>
+      run === previewRun && revision === draftRevision && !editor.draft.hasUnsavedChanges
     try {
       const readinessForPreview = (await convex.query(api.ginkoCms.editor.getEntryReadinessDetail, {
         entryId: editor.loader.entryId,
       })) as StudioEntryReadinessDetail
       await readinessDetailQuery.refresh()
+      if (!isCurrent()) return
       const scopedReadinessView = mapEntryReadinessDetail({
         readinessDetail: readinessForPreview,
         currentLocale: getCurrentLocale(),
@@ -582,6 +607,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         message: publishSession.message.trim() || undefined,
         expectedVersion,
       })) as PublishSessionPreview
+      if (!isCurrent()) return
       publishSession.preview = preview
       const operationPreview = derivePublishOperationPreviewState({
         preview,
@@ -596,6 +622,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
         locales: operationPreview.locales,
       })
     } catch (error) {
+      if (!isCurrent()) return
       if (getCmsErrorCode(error) === 'ENTRY_CONCURRENT_EDIT') {
         failPreviewForConcurrentEdit()
         return
@@ -680,7 +707,7 @@ export function useStudioEntryWorkflow(editor: StudioEntryEditorContextBase) {
     requestReviewPending.value = true
     editor.draft.error = ''
     try {
-      if (editor.draft.isDirty) {
+      {
         const saved = await editor.draft.handleSaveDraft(true)
         if (!saved) {
           if (!editor.draft.error) editor.draft.error = 'Draft could not be saved before review.'

@@ -5,8 +5,9 @@ import { cmsPermissionKeys } from '@lupinum/ginko-cms-contract/shared/permission
 import {
   buildResolvedContentContract,
   hashCanonicalJson,
+  type PortableComponentPolicyV2,
+  type JsonValue,
 } from '@lupinum/ginko-content/cms-contract'
-import type { JsonValue } from '@lupinum/ginko-content/cms-contract'
 import { describe, expect, it } from 'vitest'
 
 import { api, createCtx, seedMcpDelegation, seedMember } from '../helpers'
@@ -56,6 +57,51 @@ async function contractPayload(
 }
 
 describe('canonical CMS contract installation', () => {
+  it('installs and checks nested V2 component-property policies through the Content validator', async () => {
+    const ctx = createCtx()
+    const policy: PortableComponentPolicyV2 = {
+      version: 2,
+      components: {
+        note: {
+          kind: 'block',
+          props: {
+            tone: { types: ['string'], required: false, allowedValues: ['info', 'warning'] },
+          },
+          slots: ['default'],
+          allowedParents: null,
+          allowedChildren: null,
+          media: null,
+        },
+      },
+    }
+    const content = buildResolvedContentContract(
+      {
+        collections: {
+          posts: { type: 'page', source: 'content/posts/**/*.md', route: '/posts' },
+        },
+      },
+      { defaultLocale: 'en', locales: ['en'], componentPolicy: policy },
+    )
+    const payload = await contractPayload(content)
+    await expect(ctx.raw.query(api.contract.checkCmsContract, payload)).resolves.toMatchObject({
+      matches: false,
+      drift: [{ path: '$', expected: content }],
+    })
+    await ctx.raw.mutation(api.contract.installCmsContract, payload)
+    await expect(ctx.raw.query(api.contract.checkCmsContract, payload)).resolves.toMatchObject({
+      matches: true,
+    })
+    const invalid = { ...content, version: 999 }
+    await expect(
+      ctx.raw.mutation(api.contract.installCmsContract, {
+        ...payload,
+        content: invalid,
+        contentHash: await hashCanonicalJson(invalid),
+      }),
+    ).rejects.toThrow()
+    expect((await ctx.readAll('cmsContract'))[0]?.content).toEqual(content)
+  })
+
   it('accepts the host-verified MCP caller used by write preflight', async () => {
     const ctx = createCtx()
     await seedMember(ctx, { userId: 'editor-1', role: 'editor' })

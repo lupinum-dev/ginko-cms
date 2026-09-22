@@ -51,7 +51,7 @@ const selectedDrafts = computed(() => localeDrafts.value.filter((draft) => draft
 const canSubmit = computed(() => {
   if (
     pending.value ||
-    unref(editor.draft.isDirty) ||
+    unref(editor.draft.hasUnsavedChanges) ||
     selectedDrafts.value.length === 0 ||
     collection.value?.routing?.singleton === true ||
     collection.value?.singleton === true
@@ -157,7 +157,7 @@ async function submit() {
         />
 
         <StudioNotice
-          v-if="editor.draft.isDirty"
+          v-if="editor.draft.hasUnsavedChanges"
           tone="warning"
           :description="editor.loader.t('ginkoCms.studio.collectionEditor.duplicateSaveFirst')"
         />

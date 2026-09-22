@@ -18,7 +18,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const candidateRoot = resolve(repoRoot, '.candidate/editor-integration')
 const cmsPackageRoot = resolve(repoRoot, 'packages/cms')
 const linkRoots = existsSync(resolve(cmsPackageRoot, 'package.json'))
-  ? [repoRoot, cmsPackageRoot]
+  ? [repoRoot, cmsPackageRoot, resolve(repoRoot, 'packages/convex')]
   : [repoRoot]
 
 function candidate(name, pathVariable, hashVariable, optional = false) {
@@ -88,6 +88,10 @@ writeFileSync(
     null,
     2,
   ),
+)
+writeFileSync(
+  resolve(candidateRoot, 'pnpm-workspace.yaml'),
+  'packages: []\nminimumReleaseAge: 1440\nminimumReleaseAgeStrict: true\nminimumReleaseAgeIgnoreMissingTime: false\n',
 )
 execFileSync(
   'pnpm',

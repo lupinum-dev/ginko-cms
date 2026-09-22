@@ -6,6 +6,7 @@ export {
   cmsRoleValidator,
   collectionModeValidator,
   collectionTypeValidator,
+  contentContractValidator,
   entryStatusValidator,
   fieldTypeValidator,
   jsonObjectValidator,

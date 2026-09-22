@@ -91,6 +91,7 @@ function createStudioEntryEditorContextBase() {
     saving: draft.saving,
     error: draft.error,
     hydratedDraftVersion: draft.lastHydratedVersion,
+    hasUnsavedChanges: draft.hasUnsavedChanges,
     isDirty: draft.isDirty,
     form: draft.form,
     handleSaveDraft: draft.handleSaveDraft,

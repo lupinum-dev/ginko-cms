@@ -6,6 +6,7 @@ import {
 } from '@lupinum/ginko-cms-contract/shared/contentTags.js'
 import { v } from 'convex/values'
 
+import { internal } from '../_generated/api.js'
 import type { Doc } from '../_generated/dataModel.js'
 import { canDeleteEntries } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
@@ -529,6 +530,9 @@ async function deleteExistingEntry(
   })
   await scheduleRevalidationOutboxDelivery(ctx)
   await ctx.db.delete(entry._id)
+  await ctx.scheduler.runAfter(0, internal.entries.collaborationCleanup.removeDeletedEntryRooms, {
+    entryId: entry._id,
+  })
 
   return {
     entryId: String(entry._id),

@@ -97,7 +97,8 @@ const currentLocaleIsLive = computed(
 const liveWithChanges = computed(() => currentLocaleReadiness.value?.state === 'live_with_changes')
 
 const workflowSteps = computed<WorkflowStep[]>(() => {
-  const writeDone = !editor.draft.isDirty && Boolean(currentLocaleReadiness.value?.draftExists)
+  const writeDone =
+    !editor.draft.hasUnsavedChanges && Boolean(currentLocaleReadiness.value?.draftExists)
   const checkDone =
     !props.readinessPending &&
     !firstBlockerMessage.value &&
@@ -120,9 +121,9 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
     {
       key: 'write',
       title: studioWorkflowLabel('write'),
-      description: editor.draft.isDirty ? t('stepWriteDirty') : t('stepWriteSaved'),
-      state: editor.draft.isDirty ? 'current' : writeDone ? 'done' : 'waiting',
-      status: editor.draft.isDirty ? t('stepEditing') : t('stepSaved'),
+      description: editor.draft.hasUnsavedChanges ? t('stepWriteDirty') : t('stepWriteSaved'),
+      state: editor.draft.hasUnsavedChanges ? 'current' : writeDone ? 'done' : 'waiting',
+      status: editor.draft.hasUnsavedChanges ? t('stepEditing') : t('stepSaved'),
     },
     {
       key: 'check',

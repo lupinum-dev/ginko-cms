@@ -1,4 +1,8 @@
 import {
+  openSharedBody as openSharedBodyArgs,
+  getSharedBodyHead as getSharedBodyHeadArgs,
+  pullSharedBody as pullSharedBodyArgs,
+  pushSharedBody as pushSharedBodyArgs,
   archiveEntry as archiveEntryArgs,
   createCheckpoint as createCheckpointArgs,
   createEntry as createEntryArgs,
@@ -364,4 +368,27 @@ export const previewRetireRedirectOperation = mutation({
       components.ginkoCms.editor.previewRetireRedirectOperation,
       bindExpectedCmsContract(args),
     ),
+})
+
+export const openSharedBody = mutation({
+  args: openSharedBodyArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.editor.openSharedBody, bindExpectedCmsContract(args)),
+})
+
+export const getSharedBodyHead = query({
+  args: getSharedBodyHeadArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.editor.getSharedBodyHead, args),
+})
+
+export const pullSharedBody = query({
+  args: pullSharedBodyArgs.args,
+  handler: async (ctx, args) => await ctx.runQuery(components.ginkoCms.editor.pullSharedBody, args),
+})
+
+export const pushSharedBody = mutation({
+  args: pushSharedBodyArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(components.ginkoCms.editor.pushSharedBody, bindExpectedCmsContract(args)),
 })

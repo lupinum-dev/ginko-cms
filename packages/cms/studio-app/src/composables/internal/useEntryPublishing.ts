@@ -129,6 +129,7 @@ interface EntryPublishingDeps {
   saving: Ref<boolean>
   error: Ref<string>
   isDirty: Ref<boolean>
+  hasUnsavedChanges: Ref<boolean>
   form: { slug: string }
   handleSaveDraft: (silent?: boolean) => Promise<boolean>
   buildSharedData: () => Record<string, unknown> | undefined
@@ -233,6 +234,7 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
     publishSession.outcome = null
     if (
       publishSession.readiness.state === 'ready' ||
+      publishSession.readiness.state === 'pending' ||
       publishSession.readiness.state === 'blocked'
     ) {
       publishSession.readiness = {
@@ -304,12 +306,24 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
       mode: publishSession.mode,
     })
     try {
-      if (isDirty.value) {
-        const saved = await handleSaveDraft(true)
+      const versionBeforeFlush = deps.hydratedDraftVersion?.value ?? _entry.value?.draftVersion
+      const hadUnsavedChanges = deps.hasUnsavedChanges.value
+      const saved = await handleSaveDraft(true)
+      if (!saved) {
+        resetPublishReadiness(
+          'Draft could not be saved. Preview website changes again before publishing.',
+        )
+        if (!error.value) error.value = 'Draft could not be saved before publishing.'
+        return
+      }
+      const versionAfterFlush = deps.hydratedDraftVersion?.value ?? _entry.value?.draftVersion
+      if (
+        hadUnsavedChanges ||
+        versionBeforeFlush !== versionAfterFlush ||
+        publishSession.readiness.state !== 'ready' ||
+        publishSession.readiness.confirmationToken !== publishConfirmation.token
+      ) {
         resetPublishReadiness('Draft was saved. Preview website changes again before publishing.')
-        if (!saved) {
-          if (!error.value) error.value = 'Draft could not be saved before publishing.'
-        }
         return
       }
       const token = publishConfirmation.token

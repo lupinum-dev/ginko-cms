@@ -1,12 +1,15 @@
-import { jsonValueValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import {
+  contentContractValidator,
+  jsonValueValidator,
+} from '@lupinum/ginko-cms-contract/convex/validators.js'
+import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   assertResolvedContentContract,
   hashCanonicalJson,
   type ResolvedContentContract,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
-import { v } from 'convex/values'
+import { v, type Validator } from 'convex/values'
 
 import { canRead } from './auth/checks.js'
 import { callerQuery, directInternalQuery, mutation, query } from './functions.js'
@@ -19,16 +22,20 @@ import {
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 
 export const installCmsContractArgs = {
-  content: jsonValueValidator,
+  content: contentContractValidator,
   contentHash: v.string(),
   presentation: jsonValueValidator,
   presentationHash: v.string(),
 }
 
+// Both sides come from contracts/presentation validated before diffing. A
+// missing installation returns the whole contract at "$", which can be deeper
+// than the generic JSON transport budget. This is only a return validator.
+const driftValueValidator = v.any() as Validator<JsonValue, 'required', string>
 const driftItemValidator = v.object({
   path: v.string(),
-  installed: v.optional(jsonValueValidator),
-  expected: v.optional(jsonValueValidator),
+  installed: v.optional(driftValueValidator),
+  expected: v.optional(driftValueValidator),
 })
 
 export const installCmsContractReturns = v.object({
@@ -80,7 +87,7 @@ export const assertExpectedCmsContract = directInternalQuery({
 })
 
 type InstallCmsContractArgs = {
-  content: JsonValue
+  content: JsonObject
   contentHash: string
   presentation: JsonValue
   presentationHash: string

@@ -199,7 +199,7 @@ function requestReview() {
 
 async function openDuplicateDialog() {
   if (!editor || isSingleton.value) return
-  if (unref(editor.draft.isDirty)) {
+  {
     const saved = await editor.draft.handleSaveDraft()
     if (!saved) return
     await editor.loader.refreshEntry()

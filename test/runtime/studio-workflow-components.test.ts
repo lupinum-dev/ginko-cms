@@ -66,6 +66,17 @@ function installTestLocalStorage(): () => void {
   }
 }
 
+vi.mock('../../packages/cms/studio-app/src/composables/internal/useSharedEntryBody', () => ({
+  useSharedEntryBody: () => ({
+    mode: ref('local'),
+    ready: ref(true),
+    session: ref(undefined),
+    state: ref(undefined),
+    mountKey: ref(0),
+    error: ref(''),
+    recoverySource: ref(''),
+  }),
+}))
 vi.mock(
   '../../packages/cms/studio-app/src/components/studio/fields/StudioRichtextImageLibrary.vue',
   () => ({

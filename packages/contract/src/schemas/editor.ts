@@ -9,6 +9,61 @@ import {
   nodeKindValidator,
 } from '../validators.js'
 
+export const editorCollaborationHeadFields = {
+  epoch: v.string(),
+  schemaRevision: v.string(),
+  policyRevision: v.string(),
+  version: v.number(),
+}
+export const editorCollaborationHeadValidator = v.object(editorCollaborationHeadFields)
+export const editorCollaborationSnapshotValidator = v.object({
+  ...editorCollaborationHeadFields,
+  document: v.string(),
+})
+export const editorCollaborationReplyValidator = v.union(
+  v.object({
+    status: v.literal('ok'),
+    update: v.object({
+      ...editorCollaborationHeadFields,
+      fromVersion: v.number(),
+      steps: v.array(v.string()),
+      clientIds: v.array(v.string()),
+    }),
+  }),
+  v.object({
+    status: v.literal('stale'),
+    head: editorCollaborationHeadValidator,
+    reason: v.union(
+      v.literal('epoch'),
+      v.literal('schema'),
+      v.literal('policy'),
+      v.literal('history'),
+    ),
+  }),
+)
+const editorBodyIdentity = { entryId: v.string(), locale: v.string() }
+export const openSharedBody = defineArgs({
+  description: 'Open the authorized shared body for one entry locale.',
+  args: editorBodyIdentity,
+})
+export const getSharedBodyHead = defineArgs({
+  description: 'Read the current shared body fence and version.',
+  args: editorBodyIdentity,
+})
+export const pullSharedBody = defineArgs({
+  description: 'Read a bounded page of accepted body operations.',
+  args: { ...editorBodyIdentity, ...editorCollaborationHeadFields },
+})
+export const pushSharedBody = defineArgs({
+  description: 'Apply body operations at an exact accepted version.',
+  args: {
+    ...editorBodyIdentity,
+    ...editorCollaborationHeadFields,
+    clientId: v.string(),
+    steps: v.array(v.string()),
+  },
+})
+
 export const listEntriesForStudio = defineArgs({
   description: 'List studio entries for a collection with filters and pagination.',
   args: {

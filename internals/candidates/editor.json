@@ -1,0 +1,9 @@
+{
+  "name": "@lupinum/ginko-editor",
+  "version": "0.1.0",
+  "archive": "internals/candidates/lupinum-ginko-editor-0.1.0.tgz",
+  "sha256": "aa075de076960731a77d83e57e91f6457d98ddd6e10b5371968a3732728ee3a9",
+  "sourceRepository": "https://github.com/Mat4m0/ginko-editor",
+  "sourceCommit": "e579d55",
+  "note": "Local prepublication candidate. Registry verification never uses this archive."
+}

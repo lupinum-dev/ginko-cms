@@ -11,6 +11,7 @@ import { api } from '../../boundary/api'
 import { useConvexMutation } from '../useStudioConvex'
 import type { useStudioDebug } from '../useStudioDebug'
 import { isConcurrentEditError, isTransientSaveError, OfflineSaveRetry } from './autosaveRecovery'
+import { canRebaseEntryBody, readEntryDraftBase } from './entryDraftBase'
 import { SaveQueue } from './saveQueue'
 import type { StudioRichtextFlush } from './studioRichtextFlush'
 import type { StudioCollectionConfig, StudioEntry, StudioField } from './types'
@@ -74,7 +75,13 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     return 'saved'
   })
 
-  const form = reactive({
+  const form = reactive<{
+    slug: string
+    kind: NodeKind
+    parentEntryId: string
+    icon: string
+    badge: string
+  }>({
     slug: '',
     kind: 'page',
     parentEntryId: '',
@@ -122,6 +129,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   // this only moves on hydrate or our own successful save, so it is the
   // correct optimistic-concurrency token for saves.
   const lastHydratedVersion = ref<number | null>(null)
+  let lastHydratedBase: ReturnType<typeof readEntryDraftBase> | null = null
 
   function isDraftStale() {
     return (
@@ -168,9 +176,25 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     saveConflict.value = false
     lastPersistedEditSerial.value = editSerial.value
     lastHydratedVersion.value = value.draftVersion
+    lastHydratedBase = readEntryDraftBase(value)
     queueMicrotask(() => {
       hydrating.value = false
     })
+  }
+
+  function rebaseBodyCheckpoint(value: StudioEntry) {
+    if (!lastHydratedBase || !canRebaseEntryBody(lastHydratedBase, value, buildBodyMdc(dataFields)))
+      return false
+    hydrating.value = true
+    for (const field of fields.value) {
+      if (field.type === 'richtext') dataFields[field.key] = readBodyMdc(value)
+    }
+    lastHydratedVersion.value = value.draftVersion
+    lastHydratedBase = readEntryDraftBase(value)
+    queueMicrotask(() => {
+      hydrating.value = false
+    })
+    return true
   }
 
   // Initial load
@@ -232,6 +256,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       // lastHydratedVersion before the live query advances).
       if (nextVersion === lastHydratedVersion.value || saveQueue.active || saving.value) return
       if (isDirty.value) {
+        if (rebaseBodyCheckpoint(entry.value)) return
         // Local unsaved edits would overwrite the newer draft: block instead.
         cancelAutoSave()
         saveConflict.value = true
@@ -357,7 +382,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     saveConflict.value = false
     const currentEntry = entry.value
     if (!currentEntry) return false
-    if (isDraftStale()) {
+    if (isDraftStale() && !rebaseBodyCheckpoint(currentEntry)) {
       // A newer draft exists on the server; refuse to overwrite it.
       cancelAutoSave()
       saveConflict.value = true
@@ -411,7 +436,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       }
       if (sharedChanged) {
         sharedPatch.shared = nextSharedData
-        if (isTree.value) sharedPatch.nodeKind = form.kind as NodeKind
+        if (isTree.value) sharedPatch.nodeKind = form.kind
       }
       if (parentChanged) {
         sharedPatch.parentEntryId = form.parentEntryId || null
@@ -445,6 +470,19 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       // Advance the base version before the live query catches up so the
       // external-change watcher does not treat our own save as a conflict.
       lastHydratedVersion.value = draftVersion
+      lastHydratedBase = readEntryDraftBase({
+        ...currentEntry,
+        slug: slugChanged ? form.slug : currentEntry.slug,
+        parentEntryId: parentChanged ? form.parentEntryId : currentEntry.parentEntryId,
+        nodeKind: isTree.value ? form.kind : currentEntry.nodeKind,
+        draft: sharedChanged ? nextSharedData : currentSharedData,
+        localeData: {
+          draft: {
+            values: localizedChanged ? nextLocalizedData : currentLocalizedData,
+            bodyMdc: nextBodyMdc ?? currentBodyMdc,
+          },
+        },
+      })
       await refreshEntry()
       lastSaved.value = new Date()
       offlineRetry.clear()
@@ -486,6 +524,29 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       return false
     }
     await nextTick()
+    if (!isDirty.value && !saveQueue.active) {
+      try {
+        await refreshEntry()
+      } catch (failure) {
+        error.value = getCmsErrorMessage(
+          failure,
+          'The saved draft could not be refreshed. Retry before continuing.',
+        )
+        return false
+      }
+      await nextTick()
+      // Publication temporarily sets saving, so its query update can be
+      // intentionally skipped by the ordinary draft-version watcher.
+      if (!isDirty.value) {
+        if (richtextFlush.hasPending.value) {
+          error.value = 'New body changes are still saving. Retry when they have finished.'
+          return false
+        }
+        if (entry.value && entry.value.draftVersion !== lastHydratedVersion.value)
+          hydrateForm(entry.value, 'flushed')
+        return true
+      }
+    }
 
     cancelAutoSave()
     const requestedEditSerial = editSerial.value
@@ -513,6 +574,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   }
 
   return {
+    hasUnsavedChanges: computed(() => isDirty.value || richtextFlush.hasPending.value),
     isDirty,
     saving,
     saveState,
