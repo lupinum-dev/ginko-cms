@@ -52,6 +52,8 @@ const value = computed({
 
 const richtextPreview = ref(false)
 const conversionStatus = ref<'ok' | 'failed'>('ok')
+const previewError = ref('')
+const previewPending = ref(false)
 const imageLibrary = ref<{ pick: ImagePicker; upload: ImageUploadHandler }>()
 const metadataDialogOpen = ref(false)
 const metadataAssetId = ref<string | null>(null)
@@ -246,6 +248,26 @@ function setFilePickerOpen(open: boolean) {
   }
 }
 
+async function toggleRichtextPreview() {
+  if (richtextPreview.value) {
+    richtextPreview.value = false
+    return
+  }
+  if (previewPending.value || !editorRef.value) return
+  previewPending.value = true
+  previewError.value = ''
+  try {
+    const result = await editorRef.value.flush()
+    if (!result.ok) {
+      previewError.value = result.error.message
+      return
+    }
+    richtextPreview.value = true
+  } finally {
+    previewPending.value = false
+  }
+}
+
 function onConversionError(payload: { message?: string }) {
   conversionStatus.value = 'failed'
   if (import.meta.dev) {
@@ -280,7 +302,8 @@ function onConversionRecovered() {
         variant="ghost"
         size="sm"
         class="ginko:h-7 ginko:text-xs"
-        @click="richtextPreview = !richtextPreview"
+        :disabled="previewPending || !editorReady"
+        @click="toggleRichtextPreview"
       >
         <Icon
           :name="richtextPreview ? 'lucide:eye-off' : 'lucide:eye'"
@@ -363,6 +386,9 @@ function onConversionRecovered() {
         />
       </div>
     </div>
+    <p v-if="previewError" role="alert" class="ginko:text-xs ginko:text-destructive">
+      {{ previewError }}
+    </p>
     <p
       v-if="conversionStatus === 'failed'"
       class="ginko:text-xs ginko:leading-5 ginko:text-destructive"
