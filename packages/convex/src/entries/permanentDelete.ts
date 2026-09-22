@@ -25,6 +25,7 @@ import {
 } from '../operationHelpers.js'
 import { scheduleRevalidationOutboxDelivery } from '../revalidation.js'
 import { invalidateAssetReferenceProof } from './assetReferenceProof.js'
+import { scheduleDeletedEntryReceiptCleanup } from './draftReceiptCleanup.js'
 import { inspectInboundEntryRelations } from './inboundRelations.js'
 import { stableHash } from './workflow/hashing.js'
 
@@ -45,6 +46,7 @@ const DELETE_LIMITS = {
   transitionItems: 100,
   portableItems: 100,
   localeDrafts: 10,
+  translationReviews: 40,
   draftSearchRows: 10,
   revisions: 40,
   assetRefs: 2_000,
@@ -148,6 +150,7 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
     transitionItems,
     portableItems,
     localeDrafts,
+    translationReviews,
     draftSearchRows,
     revisions,
     assetRefs,
@@ -199,6 +202,10 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
       .withIndex('by_entry', (query) => query.eq('entryId', entry._id))
       .take(DELETE_LIMITS.localeDrafts + 1),
     ctx.db
+      .query('entryTranslationReviews')
+      .withIndex('by_entry_target', (query) => query.eq('entryId', entry._id))
+      .take(DELETE_LIMITS.translationReviews + 1),
+    ctx.db
       .query('draftSearchEntries')
       .withIndex('by_entry_locale', (query) => query.eq('entryId', entry._id))
       .take(DELETE_LIMITS.draftSearchRows + 1),
@@ -226,6 +233,7 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
     transitionItems: boundedInventory('transitionItems', transitionItems),
     portableItems: boundedInventory('portableItems', portableItems),
     localeDrafts: boundedInventory('localeDrafts', localeDrafts),
+    translationReviews: boundedInventory('translationReviews', translationReviews),
     draftSearchRows: boundedInventory('draftSearchRows', draftSearchRows),
     revisions: boundedInventory('revisions', revisions),
     assetRefs: boundedInventory('assetRefs', assetRefs),
@@ -294,6 +302,7 @@ async function loadExistingEntryState(ctx: MutationCtx, entry: Doc<'entries'>) {
     retainedPortableItems,
     expiredPortableItems,
     localeDrafts: inventories.localeDrafts.rows,
+    translationReviews: inventories.translationReviews.rows,
     draftSearchRows: inventories.draftSearchRows.rows,
     revisions: inventories.revisions.rows,
     assetRefs: inventories.assetRefs.rows,
@@ -464,6 +473,7 @@ async function deleteExistingEntry(
   for (const row of state.reviews) await ctx.db.delete(row._id)
   for (const row of state.redirects) await ctx.db.delete(row._id)
   for (const row of state.draftSearchRows) await ctx.db.delete(row._id)
+  for (const row of state.translationReviews) await ctx.db.delete(row._id)
   for (const row of state.localeDrafts) await ctx.db.delete(row._id)
   for (const row of state.publicRows) await ctx.db.delete(row._id)
   for (const row of state.publicSearchRows) await ctx.db.delete(row._id)
@@ -495,6 +505,7 @@ async function deleteExistingEntry(
       legalActivityRecordsRetained,
       retainedOperationReceipt: true,
       deletedLocaleDrafts: state.localeDrafts.length,
+      deletedTranslationReviews: state.translationReviews.length,
       deletedRevisions: state.revisions.length,
       deletedReviewRecords: state.reviews.length,
     },
@@ -529,6 +540,7 @@ async function deleteExistingEntry(
   })
   await scheduleRevalidationOutboxDelivery(ctx)
   await ctx.db.delete(entry._id)
+  await scheduleDeletedEntryReceiptCleanup(ctx, entry._id)
 
   return {
     entryId: String(entry._id),
@@ -625,6 +637,11 @@ export const permanentlyDeleteEntryOperation = defineCmsOperation({
           count: state.localeDrafts.length,
         }),
         operationEffect({
+          kind: 'translation-reviews',
+          summary: 'Translation review snapshots deleted',
+          count: state.translationReviews.length,
+        }),
+        operationEffect({
           kind: 'revisions',
           summary: 'Immutable entry revisions deleted',
           count: state.revisions.length,
@@ -649,6 +666,7 @@ export const permanentlyDeleteEntryOperation = defineCmsOperation({
         retainedOperationReceipt: true,
         deletedRecords: {
           localeDrafts: state.localeDrafts.length,
+          translationReviews: state.translationReviews.length,
           revisions: state.revisions.length,
           draftSearchRows: state.draftSearchRows.length,
           contentAssetRefs: state.assetRefs.length,
@@ -676,6 +694,7 @@ export const permanentlyDeleteEntryOperation = defineCmsOperation({
           assets: inventoryFence(state.assets),
           recoveryArtifacts: inventoryFence(state.recoveryArtifacts),
           localeDrafts: inventoryFence(state.localeDrafts),
+          translationReviews: inventoryFence(state.translationReviews),
           revisions: inventoryFence(state.revisions),
           draftSearchRows: inventoryFence(state.draftSearchRows),
           contentAssetRefs: inventoryFence(state.assetRefs),

@@ -1,3 +1,4 @@
+import { applyContentAssetFacts } from '@lupinum/ginko-cms-contract/shared/publicContent.js'
 import type { CmsPublicEntryWire } from '@lupinum/ginko-content/cms-contract'
 import { createContentDataSourceError } from '@lupinum/ginko-content/data-source'
 import type { ProviderDocumentInput } from '@lupinum/ginko-content/provider'
@@ -53,36 +54,16 @@ const publishedTranslations = (entry: CmsPublicEntryWire) =>
 
 const emptyBody = () => ({ type: 'root', props: {}, children: [] })
 
-const clonePureData = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-
 const applyAssetFacts = (entry: CmsPublicEntryWire) => {
-  const data = clonePureData(entry.data)
-  const bodyAst = entry.bodyAst === undefined ? undefined : clonePureData(entry.bodyAst)
-  const roots: Record<string, unknown> = { data, bodyAst }
-
-  for (const fact of entry.assetFacts) {
-    const segments = [...fact.fieldPath.matchAll(/([\w-]+)|\[(\d+)\]/g)].map((match) =>
-      match[2] === undefined ? match[1]! : Number(match[2]),
-    )
-    let current: unknown = roots
-    for (let index = 0; index < segments.length - 1; index++) {
-      const segment = segments[index]!
-      if (!current || typeof current !== 'object') {
-        throw createContentDataSourceError('BACKEND_FAILURE')
-      }
-      current = (current as Record<string | number, unknown>)[segment]
-    }
-    const terminal = segments.at(-1)!
-    if (
-      !current ||
-      typeof current !== 'object' ||
-      (current as Record<string | number, unknown>)[terminal] !== fact.assetId
-    ) {
-      throw createContentDataSourceError('BACKEND_FAILURE')
-    }
-    ;(current as Record<string | number, unknown>)[terminal] = fact.url
+  try {
+    return applyContentAssetFacts({
+      data: entry.data,
+      bodyAst: entry.bodyAst,
+      assetFacts: entry.assetFacts,
+    })
+  } catch {
+    throw createContentDataSourceError('BACKEND_FAILURE')
   }
-  return { data, bodyAst }
 }
 
 const parsedBodyFromData = (

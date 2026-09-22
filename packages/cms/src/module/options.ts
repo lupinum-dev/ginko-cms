@@ -49,9 +49,11 @@ export interface CmsEditorialLayout {
   collections: Record<
     string,
     {
+      /** Host-owned Editor authoring metadata; excluded from persisted presentation. Its policy must equal Content's policy. */
+      authoring?: JsonValue
       label?: LocaleText
       icon?: string
-      fields: Record<
+      fields?: Record<
         string,
         {
           label?: LocaleText

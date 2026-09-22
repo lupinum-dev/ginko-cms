@@ -6,10 +6,14 @@ import { dirname, resolve } from 'node:path'
 import { loadEnvFile } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { startLocalConvexTls } from './local-convex-tls.mjs'
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const envFile = resolve(repoRoot, '.env.local')
 if (!existsSync(envFile)) {
-  throw new Error('Run `better-convex convex deployment select local` before starting development.')
+  throw new Error(
+    'Run `better-convex convex dev --anonymous` to create this worktree’s local backend before starting development.',
+  )
 }
 loadEnvFile(envFile)
 
@@ -39,23 +43,41 @@ function runPreparation(script) {
 runPreparation('build')
 runPreparation('prepare:playground')
 
+const localTls = process.env.GINKO_LOCAL_TLS_ORIGIN
+  ? await startLocalConvexTls({ rootDir: repoRoot, environment: process.env })
+  : undefined
+
 const children = [
+  ...(localTls ? [localTls.child] : []),
   spawn('better-convex', ['convex', 'dev', '--typecheck', 'disable', '--tail-logs', 'disable'], {
     cwd: repoRoot,
     env: process.env,
     stdio: 'inherit',
   }),
-  spawn('nuxi', ['dev', '--cwd', 'playground'], {
-    cwd: repoRoot,
-    env: clientEnvironment,
-    stdio: 'inherit',
-  }),
+  spawn(
+    process.execPath,
+    [
+      '--require',
+      resolve(repoRoot, 'scripts/initialize-nuxt-esbuild.cjs'),
+      resolve(repoRoot, 'node_modules/nuxt/bin/nuxt.mjs'),
+      'dev',
+      '--no-fork',
+      '--cwd',
+      'playground',
+    ],
+    {
+      cwd: repoRoot,
+      env: clientEnvironment,
+      stdio: 'inherit',
+    },
+  ),
 ]
 
 let stopping = false
 function stop(exitCode = 0) {
   if (stopping) return
   stopping = true
+  localTls?.stop()
   for (const child of children) child.kill('SIGTERM')
   process.exitCode = exitCode
 }

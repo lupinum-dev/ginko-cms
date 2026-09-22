@@ -6,7 +6,8 @@ import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/t
 import {
   assertResolvedContentContract,
   hashCanonicalJson,
-  type ResolvedContentContractV1,
+  type ResolvedContentContract,
+  type ResolvedContentCollection,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import { v } from 'convex/values'
@@ -113,7 +114,7 @@ function assertOnlyKeys(value: JsonRecord, allowed: string[], path: string): voi
 
 export function assertCmsPresentation(
   presentation: JsonValue,
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
 ): void {
   if (!isJsonRecord(presentation)) {
     throw new Error('CMS_PRESENTATION_INVALID: presentation must be an object.')
@@ -220,8 +221,8 @@ function fieldChangeIsCompatible(
  * not reinterpret an existing draft or publication may bypass a transition.
  */
 export function isCompatibleContentContractChange(
-  current: ResolvedContentContractV1,
-  next: ResolvedContentContractV1,
+  current: ResolvedContentContract,
+  next: ResolvedContentContract,
 ): boolean {
   if (current.defaultLocale !== next.defaultLocale) return false
   if (current.locales.some((locale) => !next.locales.includes(locale))) return false
@@ -231,7 +232,7 @@ export function isCompatibleContentContractChange(
     }
   }
 
-  for (const [slug, collection] of Object.entries(current.collections)) {
+  for (const [slug, collection] of Object.entries<ResolvedContentCollection>(current.collections)) {
     const replacement = next.collections[slug]
     if (!replacement) return false
     if (collection.kind !== replacement.kind || collection.structure !== replacement.structure) {
@@ -253,8 +254,8 @@ function presentationCollection(presentation: JsonValue, slug: string): JsonValu
 }
 
 function collectionSummary(
-  current: { content: ResolvedContentContractV1; presentation: JsonValue } | null,
-  next: { content: ResolvedContentContractV1; presentation: JsonValue },
+  current: { content: ResolvedContentContract; presentation: JsonValue } | null,
+  next: { content: ResolvedContentContract; presentation: JsonValue },
 ) {
   const currentSlugs = new Set(Object.keys(current?.content.collections ?? {}))
   const nextSlugs = Object.keys(next.content.collections)

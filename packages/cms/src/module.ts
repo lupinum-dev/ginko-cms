@@ -14,6 +14,8 @@ import {
   addServerHandler,
   createResolver,
   addComponentsDir,
+  addTemplate,
+  addTypeTemplate,
   extendPages,
 } from '@nuxt/kit'
 import type { Nuxt, NuxtModule } from '@nuxt/schema'
@@ -23,6 +25,7 @@ import {
   loadGinkoContentContract,
   loadGinkoContentProviderName,
   projectContractCollections,
+  projectCmsPresentation,
 } from './module/content-contract.js'
 import { assertConvexSetupInstalled } from './module/convex.js'
 import {
@@ -33,6 +36,8 @@ import {
 } from './module/i18n.js'
 import type { I18nModuleOptions } from './module/i18n.js'
 import type { ModuleOptions, ResolvedModuleOptions } from './module/options.js'
+import { protectPrivateRoutes, resolvePrivateRouteRoot } from './module/private-route-rules.js'
+import { readerComponentTemplate } from './module/reader-components.js'
 import { buildPublicRuntimeCollections } from './module/runtime-config.js'
 import { createTailwindPlugin } from './module/tailwind.js'
 import {
@@ -196,6 +201,18 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
   async setup(moduleInput, nuxt) {
     assertModuleOptionKeys(moduleInput)
     const options = { ...moduleInput } as ResolvedModuleOptions
+    const readerTemplate = addTemplate({
+      filename: 'ginko-cms-reader-components.mjs',
+      getContents: ({ app }) => readerComponentTemplate(options.editorialLayout, app.components),
+    })
+    nuxt.options.alias['#ginko-cms-reader-components'] = readerTemplate.dst
+    addTypeTemplate({
+      filename: 'types/ginko-cms-reader-components.d.ts',
+      getContents: () => `declare module '#ginko-cms-reader-components' {
+  const components: Record<string, import('vue').Component>
+  export default components
+}`,
+    })
     const { resolve: moduleResolve } = createResolver(import.meta.url)
     const moduleOptions = nuxt.options as typeof nuxt.options & NuxtOptionsExt
     registerCmsContentProvider(nuxt)
@@ -211,9 +228,9 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       fallback: contentContract.localeFallbacks[code]?.[0],
     }))
     options.collections = projectContractCollections(contentContract, options.editorialLayout)
-    const presentationContract = (options.editorialLayout ?? {
-      collections: {},
-    }) as unknown as JsonValue
+    const presentationContract = projectCmsPresentation(
+      (options.editorialLayout ?? { collections: {} }) as unknown as JsonValue,
+    )
     const expectedContentHash = await hashCanonicalJson(contentContract as unknown as JsonValue)
     const expectedPresentationHash = await hashCanonicalJson(presentationContract)
     const localeSettings = resolveLocaleSettings(options)
@@ -224,29 +241,25 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
     const cmsPackageRoot = locatePackageRoot()
     const cmsStudioUiDir = resolve(cmsPackageRoot, 'studio-app/src/components/ui')
     const mcpEnabled = options.mcp === true
-    const studioRoute = options.route.replace(/\/$/u, '') || '/studio'
+    const studioRoute = resolvePrivateRouteRoot(options.route, 'route', true)
+    const previewRoute =
+      options.preview?.route === null
+        ? null
+        : resolvePrivateRouteRoot(options.preview?.route ?? '/preview', 'preview.route')
     await assertGinkoContentSearchBoundary(nuxt.options.rootDir, moduleOptions)
 
-    // Studio and its auth pages are identity-dependent. A prerendered anonymous
-    // shell bypasses Better Convex's request-scoped SSR auth and then shifts to
-    // the authenticated application after hydration.
+    // These pages contain request-scoped identity or unpublished content. Host
+    // catch-all caching must never turn them into a shared response.
+    const privateRoutes = [studioRoute, previewRoute].filter((route) => route !== null)
     nuxt.options.routeRules ??= {}
-    nuxt.options.routeRules[studioRoute] = {
-      ...nuxt.options.routeRules[studioRoute],
-      prerender: false,
-      robots: false,
-      sitemap: false,
-    }
-    nuxt.options.routeRules[`${studioRoute}/**`] = {
-      ...nuxt.options.routeRules[`${studioRoute}/**`],
-      prerender: false,
-      robots: false,
-      sitemap: false,
-    }
+    protectPrivateRoutes(nuxt.options.routeRules, privateRoutes)
+    nuxt.hook('nitro:config', (nitro) => {
+      nitro.routeRules ??= {}
+      protectPrivateRoutes(nitro.routeRules, privateRoutes)
+    })
 
     nuxt.options.alias ??= {}
     nuxt.options.alias['#ginko-cms'] = cmsRuntimeDir
-    nuxt.options.alias['#ginko-cms/editor'] = resolve(cmsRuntimeDir, 'editor')
     nuxt.options.alias['#ginko-cms-public'] = cmsPublicDir
 
     // i18n integration

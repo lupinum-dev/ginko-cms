@@ -245,41 +245,58 @@ export const createLocaleVariant = defineArgs({
   },
 })
 
+// Complete before/after maps let the server merge only fields changed by this save.
+// Missing map keys represent deletion; null remains an explicit stored value.
+const draftPatchValidator = v.object({
+  shared: v.optional(
+    v.object({
+      parentEntryId: v.optional(v.union(v.string(), v.null())),
+      orderRank: v.optional(v.union(v.string(), v.null())),
+      slug: v.optional(v.union(v.string(), v.null())),
+      shared: v.optional(jsonObjectValidator),
+      nodeKind: v.optional(nodeKindValidator),
+    }),
+  ),
+  locales: v.optional(
+    v.record(
+      v.string(),
+      v.object({
+        slug: v.optional(v.union(v.string(), v.null())),
+        values: v.optional(jsonObjectValidator),
+        bodyMdc: v.optional(v.union(v.string(), v.null())),
+      }),
+    ),
+  ),
+})
+
 export const saveEntryDraft = defineArgs({
   description: 'Save shared, placement, slug, and localized draft fields for an entry.',
   args: {
     entryId: v.string(),
     expectedDraftVersion: v.number(),
-    patch: v.object({
-      shared: v.optional(
-        v.object({
-          parentEntryId: v.optional(v.union(v.string(), v.null())),
-          orderRank: v.optional(v.union(v.string(), v.null())),
-          slug: v.optional(v.union(v.string(), v.null())),
-          shared: v.optional(jsonObjectValidator),
-          nodeKind: v.optional(nodeKindValidator),
-        }),
-      ),
-      locales: v.optional(
-        v.record(
-          v.string(),
-          v.object({
-            slug: v.optional(v.union(v.string(), v.null())),
-            values: v.optional(jsonObjectValidator),
-            bodyMdc: v.optional(v.union(v.string(), v.null())),
-          }),
-        ),
-      ),
-    }),
+    patch: draftPatchValidator,
+    concurrency: v.optional(
+      v.object({
+        requestId: v.string(),
+        base: draftPatchValidator,
+        localeDraftIds: v.record(v.string(), v.string()),
+      }),
+    ),
   },
   meta: {
     entryId: {
       label: 'Entry ID',
       description: 'The entry to update.',
     },
+    concurrency: {
+      label: 'Field baseline and retry identity',
+      description:
+        'Opt into merging independent fields. Supply original maps in base with the same shape as patch and the observed draft ID for each patched locale in localeDraftIds. Reuse the same requestId and payload when retrying an uncertain response; use a new ID for new edits.',
+    },
     expectedDraftVersion: {
       label: 'Expected draft version',
-      description: 'Optimistic concurrency version of the current draft.',
+      description:
+        'Observed aggregate version; required to match for saves without a field baseline.',
     },
   },
 })
@@ -412,4 +429,73 @@ export const reparentEntry = defineArgs({
     beforeEntryId: v.optional(v.string()),
     afterEntryId: v.optional(v.string()),
   },
+})
+
+/** Immutable text and structured values used to review one translation. */
+export const translationSnapshotValidator = v.object({
+  values: jsonObjectValidator,
+  shared: jsonObjectValidator,
+  bodyMdc: v.string(),
+  slug: v.union(v.string(), v.null()),
+})
+
+export const getTranslationReview = defineArgs({
+  description: 'Read the source changes and version fences for a translation review.',
+  args: { entryId: v.string(), targetLocale: v.string() },
+})
+
+const translationReviewFence = {
+  entryId: v.string(),
+  targetLocale: v.string(),
+  expectedTargetVersion: v.number(),
+  expectedTargetDraftId: v.string(),
+  expectedSharedVersion: v.number(),
+  expectedReviewId: v.union(v.string(), v.null()),
+}
+
+export const setTranslationSource = defineArgs({
+  description: 'Choose a source language or mark this language independently authored.',
+  args: { ...translationReviewFence, sourceLocale: v.union(v.string(), v.null()) },
+})
+
+export const acknowledgeTranslationReview = defineArgs({
+  description: 'Record that this exact translation was reviewed against this exact source.',
+  args: {
+    ...translationReviewFence,
+    expectedSourceVersion: v.number(),
+    expectedSourceDraftId: v.string(),
+  },
+})
+
+export const translationReviewValidator = v.object({
+  _can: v.object({ edit: v.boolean() }),
+  entryId: v.string(),
+  targetLocale: v.string(),
+  sourceLocale: v.union(v.string(), v.null()),
+  reviewId: v.union(v.string(), v.null()),
+  status: v.union(
+    v.literal('unknown'),
+    v.literal('independent'),
+    v.literal('needs-review'),
+    v.literal('reviewed'),
+  ),
+  reason: v.union(
+    v.literal('unreviewed'),
+    v.literal('source-changed'),
+    v.literal('target-changed'),
+    v.literal('source-missing'),
+    v.null(),
+  ),
+  sourceVersion: v.union(v.number(), v.null()),
+  sourceDraftId: v.union(v.string(), v.null()),
+  targetDraftId: v.string(),
+  targetVersion: v.number(),
+  sharedVersion: v.number(),
+  source: v.union(translationSnapshotValidator, v.null()),
+  target: translationSnapshotValidator,
+  reviewedSource: v.union(translationSnapshotValidator, v.null()),
+  changedFields: v.array(v.string()),
+  changedTargetFields: v.array(v.string()),
+  reviewedAt: v.union(v.number(), v.null()),
+  reviewedBy: v.union(v.string(), v.null()),
 })

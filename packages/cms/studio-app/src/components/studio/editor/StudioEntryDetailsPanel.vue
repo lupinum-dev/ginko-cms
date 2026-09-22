@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ChevronDown } from '@lucide/vue'
 import { computed } from 'vue'
 
 import {
@@ -7,7 +6,6 @@ import {
   type StudioEntryEditorContext,
 } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
-import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
 
 const props = defineProps<{
   editor: StudioEntryEditorContext
@@ -22,7 +20,6 @@ provideStudioEntryEditorContext(props.editor)
 
 const editor = props.editor
 const workflow = computed(() => props.editor.workflow)
-const advancedEditor = useStudioAdvancedEditor()
 const { t } = useCmsI18n()
 
 // Gate on entry presence, not raw pending: background refreshes (post-save)
@@ -33,141 +30,111 @@ const canPreview = computed(() => Boolean(workflow.value.currentReadinessView?.c
 
 <template>
   <div v-if="!ready" class="ginko:py-8 ginko:text-center ginko:text-sm ginko:text-muted-foreground">
-    {{ editor.loader.t('ginkoCms.studio.collectionEditor.entryNotFound') }}
+    {{
+      editor.loader.pending
+        ? t('ginkoCms.common.loading')
+        : t('ginkoCms.studio.collectionEditor.entryNotFound')
+    }}
   </div>
-
-  <div v-else class="studio-entry-details-panel ginko:flex ginko:flex-col ginko:gap-1">
-    <!-- Status: entry status, publishing-flow steps, track-live / route status. -->
-    <Collapsible
-      :default-open="true"
-      class="ginko:border-b ginko:border-border ginko:last:border-b-0"
+  <div v-else class="studio-entry-details-panel">
+    <details
+      v-if="editor.loader.locales.length > 1"
+      open
+      class="studio-entry-details-panel__section"
     >
-      <CollapsibleTrigger
-        class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
-      >
-        <span
-          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
-        >
-          {{ t('ginkoCms.studio.entryDetails.status') }}
-        </span>
-        <ChevronDown
-          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
+      <summary>{{ t('ginkoCms.studio.entryDetails.translations') }}</summary>
+      <div class="studio-entry-details-panel__content">
         <StudioEntryStatusRail
+          :readiness-detail="workflow.readinessDetail"
+          :readiness-pending="workflow.readinessPending"
+        />
+        <StudioTranslationReview
+          v-if="editor.locales.currentLocaleDraftExists"
+          :entry-id="editor.loader.entryId"
+          :target-locale="editor.loader.currentLocale"
+          :locale-options="editor.loader.locales"
+          :fields="editor.loader.fields"
+          :flush-pending="editor.draft.handleSaveDraft"
+        />
+      </div>
+    </details>
+    <details class="studio-entry-details-panel__section">
+      <summary>{{ t('ginkoCms.studio.entryDetails.history') }}</summary>
+      <div class="studio-entry-details-panel__content"><StudioVersionHistoryCard /></div>
+    </details>
+    <details class="studio-entry-details-panel__section">
+      <summary>{{ t('ginkoCms.studio.entryDetails.deliveryDetails') }}</summary>
+      <div class="studio-entry-details-panel__content">
+        <p class="ginko:text-xs ginko:text-muted-foreground">
+          {{ t('ginkoCms.studio.entryDetails.deliveryDetailsHint') }}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="editor.loader.pending || editor.draft.saving || !canPreview"
+          @click="workflow.previewPublishImpact(editor.loader.currentLocale)"
+        >
+          {{ t('ginkoCms.studio.entryDetails.previewChanges') }}
+        </Button>
+        <StudioPublishOutcomeCard
+          v-if="editor.publishing.publishSession.outcome"
+          :outcome="editor.publishing.publishSession.outcome"
+          :public-visibility="workflow.publicVisibility"
+          :publish-impact="workflow.publishImpact"
+        />
+        <StudioWorkflowCard
           :readiness-detail="workflow.readinessDetail"
           :readiness-pending="workflow.readinessPending"
           :publish-impact-requested="workflow.publishSession.impactRequested"
           :publish-impact="workflow.publishImpact"
           :publish-review="workflow.publishReview"
-          :public-visibility="workflow.publicVisibility"
           :request-review-pending="workflow.requestReviewPending"
         />
-      </CollapsibleContent>
-    </Collapsible>
-
-    <!-- Workflow: publish actions + public-workflow / translation-readiness detail. -->
-    <Collapsible
-      :default-open="true"
-      class="ginko:border-b ginko:border-border ginko:last:border-b-0"
-    >
-      <CollapsibleTrigger
-        class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
-      >
-        <span
-          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
-        >
-          {{ t('ginkoCms.studio.entryDetails.workflow') }}
-        </span>
-        <ChevronDown
-          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="ginko:pb-4">
-        <!-- One primary action per screen (DESIGN principle 1): the canonical
-             Publish CTA lives in StudioEntryTopBar. The rail only offers the
-             supporting review actions. -->
-        <div class="ginko:grid ginko:gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            class="ginko:w-full"
-            :disabled="editor.loader.pending || editor.draft.saving || !canPreview"
-            @click="workflow.previewPublishImpact(editor.loader.currentLocale)"
-          >
-            {{ t('ginkoCms.studio.entryDetails.previewChanges') }}
-          </Button>
-        </div>
-
-        <StudioPublishOutcomeCard
-          v-if="editor.publishing.publishSession.outcome"
-          class="ginko:mt-4"
-          :outcome="editor.publishing.publishSession.outcome"
+        <StudioEntryTrackCard
           :public-visibility="workflow.publicVisibility"
+          :readiness-detail="workflow.readinessDetail"
+          :readiness-pending="workflow.readinessPending"
+        />
+        <StudioEntryPublicWorkflowPanel
+          :public-visibility="workflow.publicVisibility"
+          :publish-impact-requested="workflow.publishSession.impactRequested"
           :publish-impact="workflow.publishImpact"
+          preview-scope="publish"
+          :publish-review="workflow.publishReview"
+          :selected-publish-impact-locale="workflow.publishSession.impactLocale"
+          :show-publish-impact-summary="true"
+          @preview-publish-impact="workflow.previewPublishImpact(editor.loader.currentLocale)"
         />
-        <div
-          v-else-if="workflow.publishSession.impactRequested"
-          class="ginko:mt-4 ginko:grid ginko:gap-2"
-        >
-          <div class="ginko:px-1">
-            <h3 class="studio-text-title ginko:text-foreground">
-              {{ t('ginkoCms.studio.entryDetails.websiteChangesTitle') }}
-            </h3>
-            <p class="ginko:mt-1 ginko:text-xs ginko:text-muted-foreground">
-              {{ t('ginkoCms.studio.entryDetails.websiteChangesDescription') }}
-            </p>
-          </div>
-          <StudioPublishImpactSummary
-            preview-scope="publish"
-            :publish-impact="workflow.publishImpact"
-            :publish-review="workflow.publishReview"
-            :selected-publish-impact-locale="workflow.publishSession.impactLocale"
-          />
-        </div>
-
-        <div v-if="advancedEditor" class="ginko:mt-4 ginko:grid ginko:gap-4">
-          <StudioEntryPublicWorkflowPanel
-            :public-visibility="workflow.publicVisibility"
-            :publish-impact-requested="workflow.publishSession.impactRequested"
-            :publish-impact="workflow.publishImpact"
-            preview-scope="publish"
-            :publish-review="workflow.publishReview"
-            :selected-publish-impact-locale="workflow.publishSession.impactLocale"
-            :show-publish-impact-summary="false"
-            @preview-publish-impact="workflow.previewPublishImpact(editor.loader.currentLocale)"
-          />
-          <StudioEntryTranslationReadinessPanel
-            :current-locale="editor.loader.currentLocale"
-            :items="workflow.translationReadiness"
-            :saving="editor.draft.saving"
-            @review="workflow.reviewTranslationReadiness"
-          />
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-
-    <!-- History: version history + checkpoint (restore) controls. -->
-    <Collapsible
-      :default-open="false"
-      class="ginko:border-b ginko:border-border ginko:last:border-b-0"
-    >
-      <CollapsibleTrigger
-        class="studio-entry-details-panel__trigger ginko:group ginko:flex ginko:w-full ginko:items-center ginko:justify-between ginko:gap-2 ginko:py-3 ginko:text-left"
-      >
-        <span
-          class="studio-text-eyebrow ginko:font-semibold ginko:uppercase ginko:tracking-wide ginko:text-muted-foreground"
-        >
-          {{ t('ginkoCms.studio.entryDetails.history') }}
-        </span>
-        <ChevronDown
-          class="ginko:size-4 ginko:shrink-0 ginko:text-muted-foreground ginko:transition-transform ginko:group-data-[state=open]:rotate-180"
+        <StudioEntryTranslationReadinessPanel
+          :current-locale="editor.loader.currentLocale"
+          :items="workflow.translationReadiness"
+          :saving="editor.draft.saving"
+          @review="workflow.reviewTranslationReadiness"
         />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="ginko:pb-4">
-        <StudioVersionHistoryCard />
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+    </details>
   </div>
 </template>
+
+<style scoped>
+.studio-entry-details-panel__section {
+  border-bottom: 1px solid var(--border);
+}
+.studio-entry-details-panel__section > summary {
+  cursor: pointer;
+  padding: 1rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.studio-entry-details-panel__section > summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+.studio-entry-details-panel__content {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  min-width: 0;
+}
+</style>

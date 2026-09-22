@@ -70,6 +70,9 @@ function panelStubs() {
     // PROBE that injects the editor context: it renders only if the panel's
     // provideStudioEntryEditorContext(props.editor) reached it across the panel
     // boundary — otherwise useStudioEntryEditorContext() throws.
+    StudioWorkflowCard: { template: '<div />' },
+    StudioEntryTrackCard: { template: '<div />' },
+    StudioTranslationReview: { template: '<div />' },
     StudioEntryStatusRail: { template: '<div data-testid="status-rail" />' },
     StudioPublishOutcomeCard: { template: '<div />' },
     StudioPublishImpactSummary: { template: '<div />' },
@@ -177,6 +180,16 @@ beforeEach(() => {
 })
 
 describe('StudioEntryDetailsPanel context re-provide', () => {
+  it('shows loading rather than a false missing-entry message while changing language', () => {
+    const editor = createPanelEditor()
+    const wrapper = mountPanel({
+      ...editor,
+      loader: { ...editor.loader, entry: null, pending: true },
+    } as never)
+    expect(wrapper.text()).toContain('Loading')
+    expect(wrapper.text()).not.toContain('not found')
+    wrapper.unmount()
+  })
   it('re-provides the editor context from the prop so child cards inject through the panel boundary', () => {
     const editor = createPanelEditor()
     // The panel receives `editor` as a PROP (not via provide) and calls
@@ -185,17 +198,37 @@ describe('StudioEntryDetailsPanel context re-provide', () => {
     // it would throw "Studio entry editor context is not available".
     const wrapper = mountPanel(editor)
 
-    expect(wrapper.find('[data-testid="status-rail"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="status-rail"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('history:v3')
     wrapper.unmount()
   })
 
-  it('shows all three grouped sections (Status / Workflow / History)', () => {
+  it('keeps history and delivery collapsed and omits translations on single-language sites', () => {
     const wrapper = mountPanel(createPanelEditor())
 
-    expect(wrapper.text()).toContain('Status')
-    expect(wrapper.text()).toContain('Workflow')
-    expect(wrapper.text()).toContain('History')
+    expect(wrapper.findAll('summary').map((item) => item.text())).toEqual([
+      'History',
+      'Website delivery',
+    ])
+    expect(wrapper.findAll('details').every((item) => !item.element.hasAttribute('open'))).toBe(
+      true,
+    )
+    wrapper.unmount()
+  })
+})
+
+describe('StudioEntryDetailsPanel contextual languages', () => {
+  it('makes language work visible only for multilingual entries', () => {
+    const editor = createPanelEditor()
+    editor.loader.locales.push({ code: 'de', label: 'Deutsch' })
+    const wrapper = mountPanel({ ...editor, locales: { currentLocaleDraftExists: true } })
+    expect(wrapper.findAll('summary').map((item) => item.text())).toEqual([
+      'Translations',
+      'History',
+      'Website delivery',
+    ])
+    expect(wrapper.find('details').element.hasAttribute('open')).toBe(true)
+    expect(wrapper.find('[data-testid="status-rail"]').exists()).toBe(true)
     wrapper.unmount()
   })
 })

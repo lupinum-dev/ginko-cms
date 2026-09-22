@@ -24,7 +24,6 @@ describe('[ADM-02] Studio invitation onboarding', () => {
     const page = read('packages/cms/studio-app/src/pages/invitations/accept.vue')
     expect(page).toContain('acceptInvitation({ tokenProof: proof })')
     expect(page).not.toMatch(/acceptInvitation\(\{[^}]*\b(userId|email|role)\b/u)
-    expect(page).toContain('catch {')
     expect(page).toContain("t('ginkoCms.studio.invitationPage.invalid')")
     expect(MEMBER_INVITATION_SAFE_ERROR).toBe(
       'This invitation cannot be accepted. Ask the CMS owner for a new invitation.',

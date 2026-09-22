@@ -25,7 +25,7 @@ const emit = defineEmits<{
   blur: [fieldKey: string]
 }>()
 
-const { t } = useCmsI18n()
+const { t, currentLocale } = useCmsI18n()
 
 const titleId = computed(() => `${props.idPrefix ?? ''}${props.titleField.key}`)
 const descriptionId = computed(() =>
@@ -35,7 +35,7 @@ const descriptionId = computed(() =>
 // Writers must never see raw schema keys (DESIGN.md rule 6): shared echo-aware
 // humanizer covers sr-only labels and the required-error copy.
 function fieldLabel(field: StudioField): string {
-  return fieldDisplayLabel(field)
+  return fieldDisplayLabel(field, currentLocale.value)
 }
 
 const titleValue = computed(() => {

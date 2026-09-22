@@ -2,9 +2,10 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import type { JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { isEqualJsonValue } from '@lupinum/ginko-cms-contract/shared/utils.js'
 import type {
-  ResolvedContentCollectionV1,
-  ResolvedContentContractV1,
+  ResolvedContentCollection,
+  ResolvedContentContract,
   ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import { readResolvedContentContract } from '@lupinum/ginko-content/cms-contract/node'
@@ -33,7 +34,7 @@ async function loadContentConfig(rootDir: string): Promise<ContentConfigLike> {
 
 export async function loadGinkoContentContract(options: {
   rootDir: string
-}): Promise<ResolvedContentContractV1> {
+}): Promise<ResolvedContentContract> {
   return (await readResolvedContentContract({ root: options.rootDir })).contract
 }
 
@@ -62,7 +63,7 @@ function isEchoOfKey(label: unknown, key: string): boolean {
 
 function fieldFromContract(
   field: ResolvedContentFieldV1,
-  layout: CmsEditorialLayout['collections'][string]['fields'][string] | undefined,
+  layout: NonNullable<CmsEditorialLayout['collections'][string]['fields']>[string] | undefined,
 ): FieldConfig {
   return {
     key: field.key,
@@ -99,7 +100,10 @@ function fieldFromContract(
   }
 }
 
-function collectionSettings(collection: ResolvedContentCollectionV1): JsonValue {
+function collectionSettings(
+  collection: ResolvedContentCollection,
+  layout: CmsEditorialLayout['collections'][string] | undefined,
+): JsonValue {
   return {
     defaultLocale: collection.defaultLocale,
     localizedPathPrefixes: collection.routing.localizedPathPrefixes,
@@ -107,11 +111,12 @@ function collectionSettings(collection: ResolvedContentCollectionV1): JsonValue 
     allowMultipleRoots: collection.routing.allowMultipleRoots,
     portable: collection.portable,
     componentPolicy: collection.componentPolicy,
+    ...(layout?.authoring !== undefined ? { authoring: layout.authoring } : {}),
   } as unknown as JsonValue
 }
 
 export function projectContractCollections(
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   layout?: CmsEditorialLayout,
 ): Record<string, CollectionConfig> {
   validateEditorialLayout(contract, layout)
@@ -133,9 +138,9 @@ export function projectContractCollections(
             singleton: collection.routing.singleton,
           },
           fields: collection.fields.map((field) =>
-            fieldFromContract(field, collectionLayout?.fields[field.key]),
+            fieldFromContract(field, collectionLayout?.fields?.[field.key]),
           ),
-          settings: collectionSettings(collection),
+          settings: collectionSettings(collection, collectionLayout),
         } satisfies CollectionConfig,
       ]
     }),
@@ -143,7 +148,7 @@ export function projectContractCollections(
 }
 
 function validateEditorialLayout(
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   layout: CmsEditorialLayout | undefined,
 ): void {
   if (!layout) return
@@ -156,11 +161,24 @@ function validateEditorialLayout(
       )
     assertOnlyKeys(
       collectionLayout,
-      ['label', 'icon', 'fields'],
+      ['authoring', 'label', 'icon', 'fields'],
       `Editorial layout collection "${collectionSlug}"`,
     )
+    if (collectionLayout.authoring !== undefined) {
+      const authoring = collectionLayout.authoring
+      if (
+        !authoring ||
+        typeof authoring !== 'object' ||
+        Array.isArray(authoring) ||
+        !isEqualJsonValue((authoring as Record<string, unknown>).policy, collection.componentPolicy)
+      ) {
+        throw new Error(
+          `[ginko-cms] Editorial authoring policy for collection "${collectionSlug}" must exactly match its resolved Ginko Content policy.`,
+        )
+      }
+    }
     const fieldKeys = new Set(collection.fields.map((field) => field.key))
-    for (const [fieldKey, fieldLayout] of Object.entries(collectionLayout.fields)) {
+    for (const [fieldKey, fieldLayout] of Object.entries(collectionLayout.fields ?? {})) {
       if (!fieldKeys.has(fieldKey)) {
         throw new Error(
           `[ginko-cms] Editorial layout references unknown field "${collectionSlug}.${fieldKey}".`,
@@ -179,4 +197,25 @@ function assertOnlyKeys(value: object, allowed: string[], path: string): void {
   const allowedKeys = new Set(allowed)
   const unknown = Object.keys(value).find((key) => !allowedKeys.has(key))
   if (unknown) throw new Error(`[ginko-cms] ${path} contains unknown key "${unknown}".`)
+}
+
+/** Host component implementations are deployed code, not persisted editorial presentation. */
+export function projectCmsPresentation(layout: JsonValue = { collections: {} }): JsonValue {
+  if (!layout || typeof layout !== 'object' || Array.isArray(layout)) return layout
+  const collections = layout.collections
+  if (!collections || typeof collections !== 'object' || Array.isArray(collections)) return layout
+  return {
+    ...layout,
+    collections: Object.fromEntries(
+      Object.entries(collections).flatMap(([slug, value]) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return [[slug, value]]
+        // Preserve existing presentation bytes, including explicit empty fields/maps.
+        if (!Object.hasOwn(value, 'authoring')) return [[slug, value]]
+        const presentation = Object.fromEntries(
+          Object.entries(value).filter(([key]) => key !== 'authoring'),
+        )
+        return Object.keys(presentation).length ? [[slug, presentation]] : []
+      }),
+    ),
+  }
 }

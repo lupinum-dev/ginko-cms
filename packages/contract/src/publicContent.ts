@@ -1,4 +1,4 @@
-import type { JsonMap, JsonValue } from './types.js'
+import type { JsonMap, JsonObject, JsonValue } from './types.js'
 
 export type GinkoProfileName = 'page' | 'list' | 'search' | 'nav'
 
@@ -57,6 +57,8 @@ export interface GinkoPublicEntry<
   title: string
   data: Data
   bodyAst?: JsonValue
+  /** JSON transport for parser ASTs with keys that Convex reserves, such as props.$. */
+  bodyAstJson?: string
   toc?: JsonValue
   publishedAt: string
   updatedAt: string
@@ -246,3 +248,79 @@ export type GinkoSortFor<
 export type GinkoSearchEntry<Contract extends GinkoPublicContract> = {
   [Collection in GinkoCollectionName<Contract>]: GinkoEntryFor<Contract, Collection, 'search'>
 }[GinkoCollectionName<Contract>]
+
+/** Resolve verified asset facts on a copy, preserving canonical stored identities. */
+export function applyContentAssetFacts<Data, Body>(input: {
+  data: Data
+  bodyAst: Body
+  assetFacts: ReadonlyArray<Pick<GinkoPublicAssetFact, 'fieldPath' | 'assetId' | 'url'>>
+}): { data: Data; bodyAst: Body } {
+  const clone = <T>(value: T): T =>
+    value === undefined ? value : (JSON.parse(JSON.stringify(value)) as T)
+  const data = clone(input.data)
+  const bodyAst = clone(input.bodyAst)
+  const roots: Record<string, unknown> = { data, bodyAst }
+  for (const fact of input.assetFacts) {
+    if (!/^(?:data|bodyAst)(?:\.[\w-]+|\[\d+\])+$/.test(fact.fieldPath)) {
+      throw new Error('Invalid asset field path.')
+    }
+    const segments = [...fact.fieldPath.matchAll(/([\w-]+)|\[(\d+)\]/g)].map((match) =>
+      match[2] === undefined ? match[1]! : Number(match[2]),
+    )
+    let current: unknown = roots
+    for (let index = 0; index < segments.length - 1; index++) {
+      const segment = segments[index]!
+      if (!current || typeof current !== 'object' || !Object.hasOwn(current, segment))
+        throw new Error('Asset field path is missing.')
+      current = (current as Record<string | number, unknown>)[segment]
+    }
+    const terminal = segments.at(-1)!
+    if (
+      !current ||
+      typeof current !== 'object' ||
+      !Object.hasOwn(current, terminal) ||
+      (current as Record<string | number, unknown>)[terminal] !== fact.assetId
+    ) {
+      throw new Error('Asset field identity does not match.')
+    }
+    ;(current as Record<string | number, unknown>)[terminal] = fact.url
+  }
+  return { data, bodyAst }
+}
+
+/** Decode parser JSON without dropping framework markers or trusting arbitrary object shapes. */
+export function decodeContentBodyAstJson(source: string | null): JsonObject | null {
+  if (source === null) return null
+  if (typeof source !== 'string' || new TextEncoder().encode(source).byteLength > 8 * 1024 * 1024) {
+    throw new TypeError('CMS_BODY_AST_INVALID: expected bounded article-body JSON.')
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(source)
+  } catch {
+    throw new TypeError('CMS_BODY_AST_INVALID: malformed article-body JSON.')
+  }
+  if (!isBodyJsonObject(parsed) || parsed.type !== 'root' || !Array.isArray(parsed.children)) {
+    throw new TypeError('CMS_BODY_AST_INVALID: expected a Markdown root with children.')
+  }
+  return parsed
+}
+
+function isBodyJsonObject(root: unknown): root is JsonObject {
+  if (root === null || typeof root !== 'object' || Array.isArray(root)) return false
+  const stack: Array<{ value: unknown; depth: number }> = [{ value: root, depth: 0 }]
+  let nodes = 0
+  while (stack.length) {
+    const { value, depth } = stack.pop()!
+    if (++nodes > 100_000 || depth > 64) return false
+    if (value === null || typeof value === 'string' || typeof value === 'boolean') continue
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) return false
+      continue
+    }
+    if (!value || typeof value !== 'object') return false
+    const children = Array.isArray(value) ? value : Object.values(value)
+    for (const child of children) stack.push({ value: child, depth: depth + 1 })
+  }
+  return true
+}

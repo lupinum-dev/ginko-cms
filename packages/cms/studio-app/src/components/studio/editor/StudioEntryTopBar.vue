@@ -4,6 +4,7 @@ import {
   ArchiveRestore,
   ChevronDown,
   Copy,
+  Eye,
   EyeOff,
   Flag,
   Globe,
@@ -17,7 +18,9 @@ import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import { computed, onMounted, ref, unref } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
-import { mapEntryReadinessDetail } from '../../../lib/publicWorkflow'
+import { useCmsConfig } from '../../../composables/useCmsConfig'
+import { contentLanguageLabel } from '../../../lib/contentLanguageLabel'
+import { draftPreviewPath, mapEntryReadinessDetail } from '../../../lib/publicWorkflow'
 import type { StudioEntryReadinessDetail } from './studioWorkflowTypes'
 
 const props = defineProps<{
@@ -37,6 +40,28 @@ const emit = defineEmits<{
 }>()
 
 const editor = props.mode === 'new' ? null : useStudioEntryEditorContext()
+const cmsConfig = useCmsConfig()
+const previewing = ref(false)
+const draftPreviewUrl = computed(() =>
+  editor
+    ? draftPreviewPath({
+        previewRoute: cmsConfig.preview?.route,
+        collection: editor.loader.collection,
+        entryId: editor.loader.entryId,
+        locale: editor.loader.currentLocale,
+      })
+    : null,
+)
+async function openPreview() {
+  if (!editor || !draftPreviewUrl.value || previewing.value) return
+  previewing.value = true
+  try {
+    if (!(await editor.draft.handleSaveDraft())) return
+    window.location.assign(draftPreviewUrl.value)
+  } finally {
+    previewing.value = false
+  }
+}
 const mounted = ref(false)
 const showDuplicateDialog = ref(false)
 
@@ -77,13 +102,18 @@ const currentReadinessView = computed(() =>
 // the confirm — the action is always reachable, the outcome is guarded.
 const publishLabel = computed(() => {
   if (!editor) return 'Publish'
-  const locale = editor.loader.currentLocale.toUpperCase()
-  return `${editor.loader.t('ginkoCms.common.publish')} ${locale}`
+  const locale = contentLanguageLabel(
+    editor.loader.currentLocale,
+    editor.loader.locales,
+    editor.loader.dateLocale,
+  )
+  return editor.loader.t('ginkoCms.studio.collectionEditor.publishLanguage', { language: locale })
 })
 
 const publishDisabled = computed(
   () =>
     !editor ||
+    !entry.value ||
     editor.draft.saving ||
     editor.publishing.publishSession.readiness.state === 'pending',
 )
@@ -104,6 +134,7 @@ const publishedLocaleCount = computed(
 const publishAllDisabled = computed(
   () =>
     !editor ||
+    !entry.value ||
     editor.draft.saving ||
     editor.publishing.publishSession.readiness.state === 'pending',
 )
@@ -117,6 +148,7 @@ const canRequestReview = computed(
 )
 
 const statusTone = computed<'success' | 'warning' | 'danger' | 'neutral'>(() => {
+  if (currentReadinessView.value?.currentLocale?.hasUnpublishedChanges) return 'warning'
   if (entry.value?.status === 'published') return 'success'
   if (entry.value?.status === 'archived') return 'danger'
   if (entry.value?.status === 'draft') return 'warning'
@@ -126,6 +158,8 @@ const statusTone = computed<'success' | 'warning' | 'danger' | 'neutral'>(() => 
 const statusLabel = computed(() => {
   const status = entry.value?.status
   if (!status || !editor) return status ?? ''
+  if (status !== 'archived' && currentReadinessView.value?.currentLocale?.hasUnpublishedChanges)
+    return editor.loader.t('ginkoCms.studio.workflow.states.live_with_changes')
   const key =
     status === 'published'
       ? 'ginkoCms.common.publishedStatus'
@@ -138,10 +172,9 @@ const statusLabel = computed(() => {
 })
 
 const saveState = computed(() => (editor ? unref(editor.draft.saveState) : 'saved'))
-const lastSaved = computed(() => (editor ? unref(editor.draft.lastSaved) : null))
+const saveNeedsRetry = computed(() => saveState.value === 'error')
 const saveIndicatorTone = computed(() => {
-  if (saveState.value === 'conflict') return 'ginko:text-destructive'
-  if (saveState.value === 'offline-pending') return 'ginko:text-warning-fg'
+  if (saveState.value === 'conflict' || saveState.value === 'error') return 'ginko:text-destructive'
   if (saveState.value === 'dirty') return 'ginko:text-muted-foreground'
   return 'ginko:text-muted-foreground'
 })
@@ -153,16 +186,9 @@ const saveIndicatorLabel = computed(() => {
     return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateDirty')
   if (saveState.value === 'conflict')
     return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateConflict')
-  if (saveState.value === 'offline-pending')
+  if (saveNeedsRetry.value)
     return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateOffline')
-  if (!lastSaved.value) return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateSaved')
-  const formatted = new Intl.DateTimeFormat(editor.loader.dateLocale || undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(lastSaved.value)
-  return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateSavedAt', {
-    time: formatted,
-  })
+  return editor.loader.t('ginkoCms.studio.collectionEditor.saveStateSaved')
 })
 
 const showEntryActions = computed(
@@ -213,13 +239,13 @@ async function openDuplicateDialog() {
     class="studio-entry-topbar ginko:shrink-0 ginko:border-b ginko:border-border ginko:bg-card"
   >
     <div
-      class="studio-page-content studio-entry-topbar__inner ginko:flex ginko:h-14 ginko:items-center ginko:gap-3 ginko:px-6"
+      class="studio-page-content studio-entry-topbar__inner ginko:flex ginko:min-h-14 ginko:flex-wrap ginko:items-center ginko:gap-3 ginko:px-6"
     >
       <!-- The shell header breadcrumb already names collection + entry; the
            top bar carries STATE on the left (status pill + save indicator)
            instead of repeating identity (design review S2, principle 2). -->
       <div class="ginko:flex ginko:min-w-0 ginko:flex-1 ginko:items-center ginko:gap-2">
-        <template v-if="mode !== 'new' && editor">
+        <template v-if="mode !== 'new' && editor && entry">
           <StudioStatusPill v-if="entry" :label="statusLabel" :tone="statusTone" />
           <span
             class="studio-entry-topbar__save-indicator studio-text-caption ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-1.5"
@@ -238,7 +264,7 @@ async function openDuplicateDialog() {
                   ? 'ginko:bg-muted-foreground/70'
                   : saveState === 'conflict'
                     ? 'ginko:bg-destructive'
-                    : saveState === 'offline-pending'
+                    : saveNeedsRetry
                       ? 'ginko:bg-warning-fg'
                       : 'ginko:bg-success-fg/70'
               "
@@ -258,16 +284,29 @@ async function openDuplicateDialog() {
 
       <div v-else-if="editor" class="studio-entry-topbar__actions">
         <Button
-          v-if="editor.loader.canEditEntries"
+          v-if="editor.loader.canEditEntries && saveNeedsRetry"
           variant="outline"
           size="sm"
           :disabled="editor.draft.saving"
           @click="editor.draft.handleSaveDraft()"
         >
           <span class="studio-entry-topbar__label-full">
-            {{ editor.loader.t('ginkoCms.common.saveDraft') }}
+            {{ editor.loader.t('ginkoCms.studio.collectionEditor.retrySave') }}
           </span>
-          <span class="studio-entry-topbar__label-short">Save</span>
+          <span class="studio-entry-topbar__label-short">{{
+            editor.loader.t('ginkoCms.studio.collectionEditor.retrySave')
+          }}</span>
+        </Button>
+        <Button
+          v-if="draftPreviewUrl"
+          variant="outline"
+          size="sm"
+          :disabled="!entry || editor.loader.pending || previewing || saveState === 'conflict'"
+          @click="openPreview"
+        >
+          <Loader2 v-if="previewing" class="ginko:size-4 ginko:animate-spin" />
+          <Eye v-else class="ginko:size-4" />
+          {{ editor.loader.t('ginkoCms.studio.collectionEditor.previewWorking') }}
         </Button>
         <Button
           v-if="isArchived && editor.loader.canArchiveEntries"
@@ -286,9 +325,13 @@ async function openDuplicateDialog() {
             size="sm"
             class="ginko:min-w-0 ginko:rounded-r-none"
             :disabled="publishDisabled"
+            :aria-label="publishLabel"
             @click="openPublishDialog"
           >
-            <span class="ginko:truncate">{{ publishLabel }}</span>
+            <span class="studio-entry-topbar__label-full ginko:truncate">{{ publishLabel }}</span>
+            <span class="studio-entry-topbar__label-short">{{
+              editor.loader.t('ginkoCms.common.publish')
+            }}</span>
           </Button>
           <DropdownMenu v-if="editor.loader.localeVariants.length > 1">
             <DropdownMenuTrigger as-child>
@@ -296,7 +339,7 @@ async function openDuplicateDialog() {
                 size="sm"
                 class="ginko:rounded-l-none ginko:border-l ginko:border-primary-foreground/20 ginko:px-2"
                 :disabled="publishAllDisabled"
-                aria-label="More publish options"
+                :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.morePublishOptions')"
               >
                 <ChevronDown class="ginko:size-3.5 ginko:opacity-70" />
               </Button>
@@ -317,15 +360,18 @@ async function openDuplicateDialog() {
           @click="requestReview"
         >
           <Loader2 v-if="requestReviewPending" class="ginko:size-4 ginko:animate-spin" />
-          <span class="studio-entry-topbar__label-full">Request review</span>
-          <span class="studio-entry-topbar__label-short">Review</span>
+          <span>{{ editor.loader.t('ginkoCms.studio.collectionEditor.requestReviewAction') }}</span>
         </Button>
         <DropdownMenu v-if="showEntryActions">
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"
               size="icon-sm"
-              :aria-label="`Entry actions for ${renderedTitle}`"
+              :aria-label="
+                editor.loader.t('ginkoCms.studio.collectionEditor.entryActions', {
+                  title: renderedTitle,
+                })
+              "
             >
               <MoreHorizontal class="ginko:size-4" />
             </Button>
@@ -392,23 +438,22 @@ async function openDuplicateDialog() {
         </DropdownMenu>
       </div>
     </div>
-    <!-- Conflict recovery: the save indicator says "Save conflict", this row
-         explains it and offers the way out (reload the other session's draft)
-         so users don't need a full page refresh. -->
+    <!-- Recovery keeps both values until the editor chooses a value per field. -->
     <div
       v-if="mode !== 'new' && editor && saveState === 'conflict'"
       class="studio-page-content ginko:px-6 ginko:pb-3"
     >
+      <StudioDraftConflicts
+        v-if="editor.draft.conflicts.length"
+        :conflicts="editor.draft.conflicts"
+        :fields="editor.loader.fields"
+        @resolve="editor.draft.resolveConflict"
+      />
       <StudioNotice
+        v-else
         tone="danger"
         :description="editor.loader.t('ginkoCms.studio.collectionEditor.saveConflictNotice')"
-      >
-        <template #action>
-          <Button variant="outline" size="sm" @click="editor.draft.requestHydrate()">
-            {{ editor.loader.t('ginkoCms.studio.collectionEditor.saveConflictReload') }}
-          </Button>
-        </template>
-      </StudioNotice>
+      />
     </div>
   </header>
   <StudioDuplicateEntryDialog v-if="mode !== 'new' && editor" v-model:open="showDuplicateDialog" />
@@ -420,11 +465,19 @@ async function openDuplicateDialog() {
   box-shadow: none;
 }
 
+.studio-entry-topbar__inner > :first-child {
+  flex: 1 1 20rem;
+}
+.studio-entry-topbar__save-indicator {
+  flex-shrink: 0;
+}
+
 .studio-entry-topbar__actions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .studio-entry-topbar__label-short {
@@ -432,6 +485,16 @@ async function openDuplicateDialog() {
 }
 
 @media (max-width: 639px) {
+  .studio-entry-topbar__inner {
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+  }
+  .studio-entry-topbar__inner > :first-child {
+    flex-basis: 100%;
+  }
+  .studio-entry-topbar__actions {
+    width: 100%;
+  }
   .studio-entry-topbar__label-full {
     display: none;
   }

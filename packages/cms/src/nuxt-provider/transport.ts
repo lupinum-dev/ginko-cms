@@ -3,6 +3,8 @@ import type { ContentDataSourceControl } from '@lupinum/ginko-content/data-sourc
 import type { ContentProvider } from '@lupinum/ginko-content/provider'
 import type { FunctionReference } from 'convex/server'
 
+import { decodeCmsBodyTransport } from './body-transport.js'
+
 type ProviderEvent = Parameters<ContentProvider['query']>[0]
 type PublicErrorData = Record<string, unknown>
 export type ConvexQueryCaller = {
@@ -85,7 +87,7 @@ export const callGinko = async (
     assertControlActive(control)
     const result = await caller.query(functionReference(`ginkoCms/public:${operation}`), args)
     assertControlActive(control)
-    return result
+    return decodeCmsBodyTransport(operation, result)
   } catch (error) {
     throw normalizeRemoteError(error)
   }

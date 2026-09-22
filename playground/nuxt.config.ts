@@ -1,5 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 
+import { imageAuthoring } from './image-authoring'
+
 export default defineNuxtConfig({
   modules: [
     '@lupinum/ginko-content',
@@ -7,6 +9,12 @@ export default defineNuxtConfig({
     '../packages/cms/src/module',
     '@nuxtjs/sitemap',
   ],
+
+  // CMS publications are read at request time. A static Content query or Nuxt
+  // payload would otherwise keep serving the build's approved snapshot.
+  nitro: {
+    prerender: { crawlLinks: false, ignore: ['/api/_content'] },
+  },
 
   devtools: { enabled: true },
   compatibilityDate: 'latest',
@@ -57,6 +65,8 @@ export default defineNuxtConfig({
   },
 
   content: {
+    componentPolicy: imageAuthoring.policy,
+    markdown: { tags: { image: 'ContentImage' } },
     i18n: {
       defaultLocale: 'en',
       locales: ['en', 'de'],
@@ -70,5 +80,23 @@ export default defineNuxtConfig({
   ginkoCms: {
     route: '/studio',
     mcp: true,
+    editorialLayout: {
+      collections: {
+        blog: { authoring: imageAuthoring },
+        docs: { authoring: imageAuthoring },
+        landing: {
+          label: { en: 'Landing pages', de: 'Landingpages' },
+          fields: {
+            title: { label: { en: 'Headline', de: 'Überschrift' } },
+            description: { label: { en: 'Introduction', de: 'Einleitung' } },
+            eyebrow: { label: { en: 'Opening line', de: 'Auftakt' } },
+            cta_label: { label: { en: 'Button label', de: 'Buttontext' } },
+            cta_href: { label: { en: 'Button destination', de: 'Linkziel' } },
+            hero_image: { label: { en: 'Page image', de: 'Seitenbild' } },
+            hero_alt: { label: { en: 'Image description', de: 'Bildbeschreibung' } },
+          },
+        },
+      },
+    },
   },
 })

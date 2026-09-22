@@ -46,6 +46,8 @@ BCN_AUTH_PROXY_IP_SECRET=independent-proxy-signature-secret
 GINKO_CMS_PORTABILITY_SECRET=independent-portability-token-secret
 GINKO_CMS_PASSWORD_RESET_WEBHOOK_URL=https://mailer.example/hooks/password-recovery
 GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN=secret-manager-value
+GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL=https://mailer.example/hooks/email-verification
+GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN=secret-manager-value
 GINKO_MEMBER_INVITATION_DELIVERY_URL=https://mailer.example/hooks/member-invitation
 GINKO_MEMBER_INVITATION_DELIVERY_SECRET=secret-manager-value
 GINKO_MEMBER_INVITATION_ACCEPT_URL=https://your-site.example/studio/invitations/accept
@@ -69,6 +71,11 @@ NUXT_PUBLIC_SITE_URL=https://your-site.example
   development. Embedded URL credentials are rejected.
 - `GINKO_CMS_PASSWORD_RESET_WEBHOOK_TOKEN`: bearer credential sent only to the
   configured recovery webhook. Keep it in the Convex environment/secret store.
+- `GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL`: approved HTTPS email-delivery
+  webhook for Better Auth verification. Loopback HTTP is accepted for local
+  development. Embedded URL credentials are rejected.
+- `GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN`: bearer credential sent only to
+  the verification webhook. Keep it in the Convex environment/secret store.
 - `GINKO_MEMBER_INVITATION_DELIVERY_URL`: approved host-owned HTTPS delivery
   boundary for CMS member invitations. Localhost HTTP is accepted only for
   development.
@@ -85,6 +92,13 @@ once by Better Auth, existing sessions are revoked after reset, and CMS
 membership is checked again on the next sign-in. Ginko sends the provider URL
 to the configured webhook but never creates a password-reset table or writes
 the token to logs/activity.
+
+The generated auth setup also asks Better Auth to send email verification on
+sign-up. Its webhook receives a JSON `POST` with event
+`ginko-cms.email-verification.requested`, `recipient: { email, name }`, and
+`verificationUrl`, authenticated by the verification webhook token. Deliver the
+provider-owned URL unchanged. Verification does not grant CMS membership;
+invitation acceptance still checks the matching verified email and current token.
 
 The invitation delivery boundary receives a JSON `POST` with
 `invitationId`, normalized `email`, reviewed `role`, `expiresAt`, and

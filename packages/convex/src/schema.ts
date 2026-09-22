@@ -1,3 +1,4 @@
+import { translationSnapshotValidator } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import {
   activityOutcomeValidator,
   ginkoPublicAssetFactValidator,
@@ -30,6 +31,18 @@ const durableSha256StateValidator = v.object({
  * into Convex through deploy-key authenticated internal component functions.
  */
 export default defineSchema({
+  // Acknowledgments contain no content. Keep them so an ambiguous retry cannot
+  // reapply an old edit after another member has subsequently changed the field.
+  draftSaveReceipts: defineTable({
+    entryId: v.id('entries'),
+    appIdentityId: v.string(),
+    requestId: v.string(),
+    requestHash: v.string(),
+    draftVersion: v.number(),
+    dirtyLocales: v.array(v.string()),
+    createdAt: v.number(),
+  }).index('by_entry_identity_request', ['entryId', 'appIdentityId', 'requestId']),
+
   cmsContract: defineTable({
     key: v.literal('active'),
     content: jsonObjectValidator,
@@ -859,6 +872,23 @@ export default defineSchema({
     .index('by_outcome_time', ['outcome', 'createdAt'])
     .index('by_collection', ['collection', 'createdAt'])
     .index('by_appIdentity', ['appIdentityId', 'createdAt']),
+
+  // Append-only provenance: changing the relationship does not rewrite an earlier review.
+  entryTranslationReviews: defineTable({
+    entryId: v.id('entries'),
+    targetLocale: v.string(),
+    sourceLocale: v.union(v.string(), v.null()),
+    sourceDraftId: v.union(v.id('entryLocaleDrafts'), v.null()),
+    targetDraftId: v.id('entryLocaleDrafts'),
+    sourceVersion: v.union(v.number(), v.null()),
+    targetVersion: v.number(),
+    sharedVersion: v.number(),
+    sourceSnapshot: v.union(translationSnapshotValidator, v.null()),
+    targetSnapshot: v.union(translationSnapshotValidator, v.null()),
+    reviewed: v.boolean(),
+    recordedAt: v.number(),
+    recordedBy: v.string(),
+  }).index('by_entry_target', ['entryId', 'targetLocale']),
 
   entryLocaleDrafts: defineTable({
     entryId: v.id('entries'),

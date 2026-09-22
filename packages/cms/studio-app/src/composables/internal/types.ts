@@ -15,6 +15,8 @@ export type StudioField = CmsField
 export type StudioLocaleState = LocaleState
 
 export interface StudioEntryLocaleData {
+  draftId?: string | null
+  draftSlug?: string | null
   draft: StudioLocaleState
   published?: StudioLocaleState | null
 }
@@ -48,6 +50,7 @@ export interface StudioEntry {
   locales?: Array<{
     locale: string
     draftExists?: boolean
+    draftId?: string | null
     draftSlug?: string | null
     draftPath?: string | null
     draft: StudioLocaleState
@@ -94,6 +97,7 @@ export interface StudioAssetRecord {
 }
 
 export interface StudioAssetContext {
+  authoringSource?: unknown
   locale?: string
   entryId?: string
   collection?: string

@@ -36,7 +36,7 @@ const props = defineProps({
 const emit = defineEmits<{
   'update:modelValue': [value: unknown]
 }>()
-const { t } = useCmsI18n()
+const { t, currentLocale } = useCmsI18n()
 const normalizedField = computed(() => props.field)
 
 const value = computed({
@@ -46,7 +46,7 @@ const value = computed({
     getDefault(normalizedField.value.type, normalizedField.value.fields ?? undefined),
   set: (value) => emit('update:modelValue', value),
 })
-const label = computed(() => fieldDisplayLabel(normalizedField.value))
+const label = computed(() => fieldDisplayLabel(normalizedField.value, currentLocale.value))
 const fieldComponent = computed(() => {
   const component = fieldComponents[normalizedField.value.type]
   if (!component) {

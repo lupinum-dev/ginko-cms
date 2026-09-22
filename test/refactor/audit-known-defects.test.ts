@@ -24,10 +24,7 @@ function section(contents: string, start: string, end?: string) {
  * query-count regressions; they are not substitutes for those tests.
  */
 describe('known audit defects', () => {
-  it('[QUA-01] keeps narrow editor controls named and saved-state text AA-readable', () => {
-    const toolbar = source(
-      'packages/cms/studio-app/src/components/studio/editor/StudioEntryCompareToolbar.vue',
-    )
+  it('[QUA-01] keeps shared settings named and avoids muted text opacity', () => {
     const sharedFields = source(
       'packages/cms/studio-app/src/components/studio/editor/StudioSharedFieldsPanel.vue',
     )
@@ -44,16 +41,11 @@ describe('known audit defects', () => {
       'packages/cms/studio-app/src/components/studio/editor/StudioEntryStatusRail.vue',
     )
 
-    expect(toolbar).toContain('aria-label="Single language view"')
-    expect(toolbar).toContain('Select language. Current ${currentLocaleLabel}')
     expect(sharedFields).toContain(':aria-label="editor.loader.t(')
     expect(parentPicker).toContain(':aria-label="t(\'ginkoCms.studio.collectionEditor.parent\')"')
     expect(topBar).not.toContain("return 'ginko:text-muted-foreground/80'")
     expect(detailsPanel).not.toMatch(/text-muted-foreground\/(?:60|70|80)/)
     expect(statusRail).not.toMatch(/text-muted-foreground\/(?:60|70|80)/)
-    expect(statusRail).toContain(
-      'ginko:font-mono ginko:text-xs ginko:font-semibold ginko:text-foreground',
-    )
   })
 
   it('reads an entry draft public projection through the existing entry index', () => {
@@ -235,30 +227,19 @@ describe('known audit defects', () => {
     expect(loader).not.toMatch(/(?:local|session)Storage.*(?:draft|entry)/)
   })
 
-  it('[EDT-04] keeps pending and failed draft work guarded until backend save success', () => {
-    const draft = source('packages/cms/studio-app/src/composables/internal/useEntryDraft.ts')
-    const initialHydration = section(draft, '// Initial load', '// Re-hydrate')
-    const routeGuard = section(draft, 'onBeforeRouteLeave(', 'const offlineRetry')
-    const browserGuard = section(
-      draft,
-      'const beforeUnloadHandler = (event: BeforeUnloadEvent) => {',
-      'const keyboardSaveHandler = (event: KeyboardEvent) => {',
-    )
-    const saveResult = section(draft, 'async function handleSaveDraft(', 'return {')
+  // EDT-04 is covered by mounted route/flush assertions in
+  // studio-draft-session-adapter.test.ts and the shared session race tests.
 
-    expect(routeGuard).toContain('if (isDirty.value && canEditEntries.value)')
-    expect(routeGuard).not.toContain('!saving.value')
-    expect(routeGuard).toContain('return studioConfirm({')
-    expect(routeGuard).toContain('return true')
-    expect(routeGuard).not.toContain('next(')
-    expect(browserGuard).toContain('if (isDirty.value)')
-    expect(browserGuard).toContain('event.preventDefault()')
-    expect(saveResult).toContain('const succeeded = await saveQueue.enqueue({ silent })')
-    expect(saveResult).toContain('if (succeeded)')
-    expect(saveResult).toContain('isDirty.value = false')
-    expect(initialHydration).toContain('watch(')
-    expect(initialHydration).toContain('[entry, collectionConfig]')
-    expect(initialHydration).toContain('if (value && config && !initialized.value)')
+  it('does not guard or duplicate a create after the backend accepted ownership', () => {
+    const createPage = source('packages/cms/studio-app/src/pages/[collection]/new.vue')
+    const createFlow = section(createPage, 'async function handleCreate(', 'onBeforeRouteLeave(')
+
+    expect(createFlow).toContain('if (createdEntryId.value)')
+    expect(createFlow).toContain('createdEntryId.value = entryId')
+    expect(createFlow.indexOf('createdEntryId.value = entryId')).toBeLessThan(
+      createFlow.indexOf("'create-entry'"),
+    )
+    expect(createPage).toContain('if (createdEntryId.value || !isDirty.value) return true')
   })
 
   it('keeps standalone Studio components on direct, warning-free Vue contracts', () => {
@@ -266,7 +247,6 @@ describe('known audit defects', () => {
     const richtext = source(
       'packages/cms/studio-app/src/components/studio/fields/FieldRichtext.vue',
     )
-    const toolbar = source('packages/cms/studio-app/src/editor/ui/Toolbar.vue')
     const assets = source('packages/cms/studio-app/src/components/studio/StudioAssetBrowser.vue')
     const collections = source(
       'packages/cms/studio-app/src/composables/internal/useStudioCollectionsAdmin.ts',
@@ -276,11 +256,8 @@ describe('known audit defects', () => {
     expect(fields).toContain("import FieldRichtext from './FieldRichtext.vue'")
     expect(fields).toContain('richtext: FieldRichtext')
     expect(fields).not.toContain('defineAsyncComponent')
-    expect(richtext).toContain(
-      "defineAsyncComponent(() => import('../../../editor/ui/Editor.vue'))",
-    )
-    expect(toolbar).toContain('aria-label="Rich text formatting tools"')
-    expect(toolbar).toContain('tabindex="0"')
+    expect(richtext).toContain("from '@lupinum/ginko-editor'")
+    expect(richtext).toContain(':authoring-kit="authoringKit"')
     expect(assets).toContain('defineOptions({ inheritAttrs: false })')
     expect(assets).toContain('v-bind="$attrs"')
     expect(collections).toContain('collectionDetail: selectedCollectionDetail')

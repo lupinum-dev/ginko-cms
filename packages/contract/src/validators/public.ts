@@ -50,6 +50,7 @@ export const ginkoPublicEntryValidator = v.object({
   title: v.string(),
   data: v.record(v.string(), jsonValueValidator),
   bodyAst: v.optional(publicBodyAstValidator),
+  bodyAstJson: v.optional(v.string()),
   toc: v.optional(jsonValueValidator),
   publishedAt: v.string(),
   updatedAt: v.string(),

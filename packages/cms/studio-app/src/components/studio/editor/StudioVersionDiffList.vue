@@ -2,9 +2,11 @@
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
+import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { fieldDisplayLabel, humanizeFieldKey } from '../../../lib/fieldLabel'
 
 const editor = useStudioEntryEditorContext()
+const { currentLocale } = useCmsI18n()
 const ce = (key: string, params?: Record<string, unknown>): string =>
   editor.loader.t(`ginkoCms.studio.collectionEditor.${key}`, params)
 
@@ -23,7 +25,7 @@ function fieldLabelByKey(key: string): string {
   const field = editor.loader.fields?.find(
     (candidate: { key: string; label?: unknown }) => candidate.key === key,
   )
-  return field ? fieldDisplayLabel(field) : humanizeFieldKey(key)
+  return field ? fieldDisplayLabel(field, currentLocale.value) : humanizeFieldKey(key)
 }
 
 const multiLocale = computed(() => (editor.loader.locales?.length ?? 0) > 1)

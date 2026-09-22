@@ -217,6 +217,7 @@ describe('package boundary contracts', () => {
     expect(Object.keys(cmsPackage.exports ?? {}).sort()).toEqual([
       '.',
       './convex/auth',
+      './editing',
       './nuxt-provider',
       './portability',
       './public',

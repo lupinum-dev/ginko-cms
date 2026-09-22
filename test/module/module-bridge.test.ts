@@ -145,7 +145,16 @@ describe('ginko-cms Convex setup validation', () => {
       classSuffix: '',
     })
     expect(nuxt.options.routeRules).toMatchObject({
-      '/studio': { prerender: false, robots: false, sitemap: false },
+      '/studio': {
+        cache: false,
+        isr: false,
+        swr: false,
+        prerender: false,
+        robots: false,
+        sitemap: false,
+      },
+      '/preview': { cache: false, isr: false, swr: false, prerender: false },
+      '/preview/**': { cache: false, isr: false, swr: false, prerender: false },
       '/studio/**': {
         headers: { 'x-studio-rule': 'preserved' },
         prerender: false,
@@ -179,6 +188,38 @@ describe('ginko-cms Convex setup validation', () => {
     extendWithoutMcp?.(pagesWithoutMcp)
     expect(pagesWithoutMcp.map((page) => page.path)).not.toContain('/oauth/login')
     expect(pagesWithoutMcp.map((page) => page.path)).not.toContain('/oauth/consent')
+  })
+
+  it('protects custom preview routes and reapplies privacy to final Nitro child rules', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-private-routes-'))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+    const nuxt = createNuxtMock(rootDir)
+    await setupModule({ route: '/admin', preview: { route: '/internal/drafts' } }, nuxt)
+    expect(nuxt.options.routeRules['/preview/**']).toBeUndefined()
+    expect(nuxt.options.routeRules['/internal/drafts/**']).toMatchObject({ cache: false })
+    const configureNitro = nuxt.hook.mock.calls.find(([name]) => name === 'nitro:config')?.[1]
+    const nitro = {
+      routeRules: { '/internal/drafts/blog/**': { isr: 60, headers: { 'x-custom': 'kept' } } },
+    }
+    configureNitro(nitro)
+    expect(nitro.routeRules['/internal/drafts/blog/**']).toMatchObject({
+      isr: false,
+      cache: false,
+      swr: false,
+      prerender: false,
+      headers: { 'x-custom': 'kept', 'cache-control': 'private, no-store' },
+    })
+  })
+
+  it('does not reserve a preview prefix when preview is disabled', async () => {
+    const rootDir = mkdtempSync(join(tmpdir(), 'ginko-cms-no-preview-'))
+    tempDirs.push(rootDir)
+    await installConvexSetup(rootDir)
+    const nuxt = createNuxtMock(rootDir)
+    await setupModule({ route: '/studio', preview: { route: null } }, nuxt)
+    expect(nuxt.options.routeRules['/studio/**']).toMatchObject({ cache: false })
+    expect(nuxt.options.routeRules['/preview/**']).toBeUndefined()
   })
 
   it('accepts the explicit Convex-native MCP setup without registering a Nuxt MCP route', async () => {

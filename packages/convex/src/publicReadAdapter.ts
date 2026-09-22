@@ -11,6 +11,7 @@ import type {
   GinkoSurroundResult,
 } from '@lupinum/ginko-cms-contract/shared/publicContent.js'
 import type { JsonMap, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
+import { convexToJson } from 'convex/values'
 
 export interface PublicProjectionEntry {
   _id: string
@@ -128,13 +129,28 @@ export function toGinkoEntry(
     locale,
     title: entry.title,
     data: entry.data,
-    ...(entry.bodyAst ? { bodyAst: entry.bodyAst } : {}),
+    ...publicBodyTransport(entry.bodyAst),
     ...(entry.toc ? { toc: entry.toc } : {}),
     publishedAt: toIso(entry.publishedAt),
     updatedAt: toIso(entry.publishedAt),
     revision: entry.stableId,
     stableId: entry.stableId,
     assetFacts: entry.assetFacts,
+  }
+}
+
+/** Parser markers such as props.$ are JSON, but are reserved Convex object keys.
+ * Keep the existing native-object contract whenever it is actually serializable.
+ */
+function publicBodyTransport(
+  bodyAst: JsonValue | undefined,
+): Pick<GinkoPublicEntry, 'bodyAst' | 'bodyAstJson'> {
+  if (bodyAst === undefined) return {}
+  try {
+    convexToJson(bodyAst)
+    return { bodyAst }
+  } catch {
+    return { bodyAstJson: JSON.stringify(bodyAst) }
   }
 }
 

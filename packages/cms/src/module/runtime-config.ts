@@ -29,8 +29,23 @@ export function buildPublicRuntimeCollections(
           ? collection.locales
           : localeSettings.locales.map((locale) => locale.code),
         fields: collection.fields ?? [],
-        settings: collection.settings ?? {},
+        // Nuxt normalizes nested nulls in runtimeConfig to empty strings. Keep
+        // this JSON contract atomic so authoring policy/default values survive.
+        settings: runtimeCollectionSettings(collection.settings),
       },
     ]),
   )
+}
+
+function runtimeCollectionSettings(
+  settings: ResolvedModuleOptions['collections'][string]['settings'],
+) {
+  if (
+    !settings ||
+    typeof settings !== 'object' ||
+    Array.isArray(settings) ||
+    !Object.hasOwn(settings, 'authoring')
+  )
+    return settings ?? {}
+  return { ...settings, authoring: JSON.stringify(settings.authoring) }
 }

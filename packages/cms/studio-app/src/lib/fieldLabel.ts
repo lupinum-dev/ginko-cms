@@ -17,8 +17,24 @@ function normalizeForEchoCheck(value: string): string {
 }
 
 /** Display label for a field: its label, unless that just restates the key. */
-export function fieldDisplayLabel(field: { key: string; label?: unknown }): string {
-  const label = typeof field.label === 'string' ? field.label.trim() : ''
+export function fieldDisplayLabel(field: { key: string; label?: unknown }, locale = 'en'): string {
+  const configured = field.label
+  const labels =
+    configured && typeof configured === 'object' && !Array.isArray(configured)
+      ? Object.fromEntries(
+          Object.entries(configured).filter(
+            ([, value]) => typeof value === 'string' && value.trim(),
+          ),
+        )
+      : null
+  const selected =
+    typeof configured === 'string'
+      ? configured
+      : (labels?.[locale] ??
+        labels?.[locale.split('-')[0] ?? locale] ??
+        labels?.en ??
+        Object.values(labels ?? {})[0])
+  const label = typeof selected === 'string' ? selected.trim() : ''
   if (label) {
     if (normalizeForEchoCheck(label) !== normalizeForEchoCheck(field.key)) return label
     // Keep deliberate acronym labels (URL, SEO) that humanizing would re-case.

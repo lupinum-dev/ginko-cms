@@ -1,3 +1,6 @@
+/** Maximum nesting accepted for a stored JSON field value. */
+export const CMS_JSON_MAX_DEPTH = 8
+
 export type JsonPrimitive = string | number | boolean | null
 
 export type JsonValue = JsonPrimitive | JsonObject | JsonArray

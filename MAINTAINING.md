@@ -22,10 +22,11 @@ the CMS packages are published.
 ## Daily Maintenance
 
 The Better Convex Nuxt/Vue beta.5 tuple is installed from its exact registry
-artifacts. Ginko Content beta.8 remains a local behavioral candidate until its
-reviewed artifact is published, so final release certification and the
-machine-independent lockfile gate remain blocked. Install the committed
-dependency graph, then run the source and packed-source checks:
+artifacts. The Content beta.9 and Editor 0.1.0 archives remain local candidates
+until their reviewed artifacts are published. Final release certification and
+the machine-independent lockfile gate remain blocked. Keep the exact archives
+from `packages/cms/compatibility.json` under ignored `.pack/upstream`, install the
+committed dependency graph, then run the source and packed-source checks:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -37,7 +38,7 @@ Ordinary CI checks out `sourceRehearsal.betterConvexCommit` only for the
 packed-source consumer. It does not inject an override into Ginko's dependency
 graph. The committed lockfile remains the sole source-install authority.
 
-The release-candidate lane consumes four approved dependency tarballs without
+The release-candidate lane consumes the approved dependency tarballs without
 rebuilding them. Put the exact registry downloads in `.pack/upstream`, run the
 single pack command, then verify the uploaded result:
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { resolveEntryTitle } from '@lupinum/ginko-cms-contract/shared/fields/title.js'
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import StudioCreateTranslationDialog from '../../components/studio/editor/StudioCreateTranslationDialog.vue'
 import StudioEntryDetailsPanel from '../../components/studio/editor/StudioEntryDetailsPanel.vue'
@@ -10,7 +11,7 @@ import StudioMissingLocalePanel from '../../components/studio/editor/StudioMissi
 import { provideStudioEntryEditorContext } from '../../composables/internal/studioEntryEditorContext'
 import { useStudioEntryEditor } from '../../composables/internal/useStudioEntryEditor'
 import { useCmsI18n } from '../../composables/useCmsI18n'
-import { useRightSidebarPanel } from '../../composables/useRightSidebar'
+import { useRightSidebar, useRightSidebarPanel } from '../../composables/useRightSidebar'
 
 const editor = useStudioEntryEditor()
 provideStudioEntryEditorContext(editor)
@@ -48,7 +49,7 @@ const sharedHeroDescriptionField = computed(() =>
     : null,
 )
 
-// Register the entry-details panel in the right sidebar (RFC Phase 5 step 2).
+// Contextual tools stay available while the content surface gets the default focus.
 // The editor context crosses the layout/page provide boundary through the props
 // getter; the panel re-provides it so the moved cards keep their inject() intact.
 // The reactive title also feeds StudioHeader's last breadcrumb on this route.
@@ -59,12 +60,24 @@ useRightSidebarPanel({
   description: () => collectionLabel.value || undefined,
   component: StudioEntryDetailsPanel,
   props: () => ({ editor }),
-  defaultOpen: true,
+  defaultOpen: false,
   // The content being edited wins the space fight (design review S2): the
   // details panel opens at the 320px metadata width even on laptop viewports.
   // Users can still drag it wider; the preference persists.
   compact: true,
 })
+// Website review links open the same contextual tools as the named Studio action.
+const route = useRoute()
+const details = useRightSidebar()
+watch(
+  () => route.query.panel,
+  (panel) => {
+    if (panel !== 'languages') return
+    if (details.isMobile.value) details.setOpenMobile(true)
+    else details.setOpen(true)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -81,6 +94,8 @@ useRightSidebarPanel({
     <template #toolbar>
       <StudioEntryCompareToolbar />
     </template>
+
+    <StudioEntryReviewOutcomeNotice :readiness-detail="workflow.readinessDetail" />
 
     <StudioNotice v-if="editor.draft.error" tone="danger">
       <template v-if="editor.draft.error.includes(';')">

@@ -1,9 +1,49 @@
-# Active Migrations
+# Active migrations
 
-## Ginko Content beta.8 local candidate override
+## Content and Editor local candidate overrides
 
-- Why it exists: Ginko CMS needs the reviewed beta.8 portability contract, but that exact Ginko Content version is not yet available from npm.
-- Introduced: 2026-09-09 during the Better Convex beta.5 registry cutover.
-- Depends on it: local source checks and the Lupinum website migration trial.
-- Removal condition: publish the reviewed `@lupinum/ginko-content@1.0.0-beta.8` artifact, record its registry provenance in `packages/cms/compatibility.json`, remove the workspace override, regenerate the lockfile from the registry, and pass the machine-independent lockfile test.
-- Tracking issue: none; the active continuation automation tracks this release gate.
+- Why it exists: Studio uses the standalone Editor with Content's checked parser and authoring contracts. The earlier Content beta.8 candidate does not contain those APIs. This branch requires the reviewed Content beta.9 structured-page candidate and Editor 0.1.0 archive.
+- Introduced: 2026-09-22; supersedes the beta.8 override introduced on 2026-09-09.
+- Owner: CMS integration coordinator.
+- Depends on it: local source checks, Studio builds, the CMS experience pilot, and packed consumer checks. Host applications consume the built Studio; they do not need to install Editor separately.
+- Exact identities: `packages/cms/compatibility.json` records archive hashes and source commits with `local-source-candidate-only` certification. Archives live under ignored `.pack/upstream/`; package manifests retain portable version specifiers.
+- Removal condition: publish these reviewed Content and Editor artifacts after approval, record their registry provenance, remove both workspace overrides, regenerate the lockfile from the registry, and pass package/consumer checks against the same bytes.
+- Rollback: before contract deployment, revert this integration tuple and reinstall the earlier lockfile. After deploying a structured-page contract, first migrate entries using the reviewed contract rollback procedure; do not run an older consumer against unsupported contracts. No persisted document format is migrated by Editor adoption itself.
+- Tracking issue: none; autonomous CMS goal and integration acceptance checklist track this local release gate.
+
+## Draft save concurrency opt-in
+
+- Why it exists: published host adapters, MCP clients and older Studio consumers use aggregate `expectedDraftVersion` plus replacement maps. The new shared editing session supplies `concurrency: { requestId, base, localeDraftIds }` to the same canonical writer; changing old replacement semantics would lose data.
+- Introduced: 2026-09-22.
+- Owner: CMS editorial domain and its shared editing session.
+- Depends on it: existing `saveEntryDraft` clients that omit `concurrency`, including owner tooling and generated host adapters used with older contract versions.
+- Removal condition: inventory all supported consumers, migrate each to explicit baselines and stable retry identifiers, then remove the legacy invocation in a reviewed major contract change. Until then the optional argument is an additive public API, not a second datastore.
+- Locale identities: the new, unreleased concurrency block includes the actual draft-row IDs exposed by `getEntry`. A removed/recreated language cannot accept queued edits from its former row, even when values match. No data backfill is needed.
+- Rollback: old clients continue writing canonical entries and locale drafts; stop sending `concurrency` to return to aggregate version checks. Retain `draftSaveReceipts` while requests may still be retried. Its rows store only member-bound request digests and acknowledgments, never content. Do not drop receipts during a frontend rollback: replaying an old request must not overwrite later work. After authoritative entry deletion, the internal receipt cleanup runs in 256-row batches and rechecks that the entry is missing in every batch. Contentless receipts do not enter the atomic content-deletion inventory; they never expire while the entry exists.
+- Tracking issue: none; `plans/2026-09-22-autonomous-cms-goal.md` owns local acceptance.
+
+## Translation review provenance
+
+- Introduced: 2026-09-22. Owner: CMS editorial domain (`entries/translationReview.ts`).
+- This is an additive table, not a compatibility writer or content migration. Existing locale drafts are untouched and have unknown provenance until someone chooses a source or explicitly marks independent authorship. Newly copied locale variants record the explicitly chosen source immediately, with unreviewed status; copying never counts as translation review. Imported or recreated locale drafts must be reviewed again; numeric versions alone never transfer approval to a new draft identity.
+- `entryTranslationReviews` records immutable source/target snapshots and the exact draft identities and versions that were reviewed. Current readiness is derived from canonical working rows. Source relationships never publish content or block independent locale publication.
+- Rollback: restore the previous Studio client while retaining the table/schema and records. Public reads and existing draft writes do not depend on review records. Never convert missing provenance into reviewed status. No reverse data migration is required; re-enabling the client derives current review status again from the retained records.
+- Retention: confirmed permanent entry deletion inventories and deletes review snapshots; previews fail closed beyond the existing atomic deletion envelope (40 translation records). The deletion preview also fences these records so a new review invalidates a stale purge confirmation. No automatic history pruning is introduced.
+- There is no temporary compatibility path to remove. Review provenance is CMS editorial metadata; the existing portable content format remains unchanged, and importing content starts with unknown provenance rather than claiming an unverifiable review.
+
+## Structured page contract adoption
+
+- Introduced: 2026-09-22. `type: 'page', body: false` is opt-in. Existing article definitions, stored `bodyMdc` strings and public routes keep their behavior; bodyless pages store an empty canonical body and expose `bodyAst: null`.
+- Changing an existing article collection to structured fields requires the existing reviewed contract-transition workflow. Direct contract installation rejects that change. Before apply, cancellation leaves the original drafts and contract unchanged.
+- Nonempty article text must be preserved explicitly in a named richtext field by the reviewed transition. Bodies containing managed-media references are blocked until an explicit media migration is provided: generic field storage must not hide those references from asset-purge protection or portability.
+- Rollback uses an inverse reviewed transition that restores the article body from the preserved field and restores the original contract. The existing transition requirement to unpublish affected entries still applies; active public snapshots are never silently reinterpreted.
+- No destructive table migration or duplicate content store is introduced. Empty stored bodies remain the canonical representation for structured pages.
+
+## Local Nuxt esbuild preload
+
+- Why it exists: the pinned Nuxt/Nitro development stack on macOS with Node 24 can fail with `spawn EBADF` when Nitro starts esbuild after Nuxt installs terminal handlers. `scripts/initialize-nuxt-esbuild.cjs` starts Nitro's own service before those handlers, only on that platform/runtime combination.
+- Introduced: 2026-09-22. Owner: CMS local development tooling.
+- Depends on it: `scripts/dev-playground.mjs`, through its local `--require` and `--no-fork` launch. Consumer and production bundles do not import it.
+- Removal condition: the supported pinned Nuxt/Nitro/Node combination starts the normal local Studio and playground reliably without this preload; verify a clean start, authenticated Studio navigation and a development rebuild, then remove the preload file and its invocation together.
+- Rollback: remove the preload invocation and return to the standard Nuxt development command on a runtime verified not to exhibit the descriptor failure. It does not change content or persisted state.
+- Tracking issue: none; this integration workstream records the local runtime evidence.

@@ -10,7 +10,13 @@ import {
   parseCmsSiteDataWireResult,
   parseCmsSurroundWireResult,
   validatePublicMarkdownAst,
+  buildResolvedContentContract,
 } from '@lupinum/ginko-content/cms-contract'
+
+const cmsModuleUrl = import.meta.resolve('@lupinum/ginko-cms')
+const { projectContractCollections } = await import(
+  new URL('./module/content-contract.js', cmsModuleUrl)
+)
 
 const rejects = (operation, label) => {
   assert.throws(() => operation(), undefined, `${label} accepted hostile input`)
@@ -71,4 +77,67 @@ for (const [label, ast, issue] of [
 }
 assert.equal(validatePublicMarkdownAst(root('a', { href: '/docs' })).ok, true)
 
-console.log('packed Content safety probes passed')
+const componentPolicyV2 = {
+  version: 2,
+  components: {
+    note: {
+      kind: 'block',
+      props: {
+        tone: {
+          types: ['string'],
+          required: true,
+          allowedValues: ['info', 'warning'],
+        },
+      },
+      slots: ['default'],
+      allowedParents: null,
+      allowedChildren: null,
+      media: null,
+    },
+  },
+}
+const v2Contract = buildResolvedContentContract(
+  { collections: { docs: { type: 'page', source: 'content/docs/**/*.md' } } },
+  { defaultLocale: 'en', locales: ['en'], componentPolicy: componentPolicyV2 },
+)
+assert.equal(v2Contract.version, 2)
+const resolvedPolicy = v2Contract.collections.docs.componentPolicy
+const authoring = {
+  version: 1,
+  policy: resolvedPolicy,
+  implementation: {
+    note: { componentName: 'DocsNote', props: {}, slots: ['default'] },
+  },
+  authoring: {
+    note: { label: 'Documentation note', slots: { default: { label: 'Content' } } },
+  },
+  recipes: [
+    {
+      id: 'documentation-note',
+      label: 'Documentation note',
+      source: '::note{tone="info"}\nUseful context.\n::',
+    },
+  ],
+}
+const projected = projectContractCollections(v2Contract, {
+  collections: { docs: { authoring, fields: {} } },
+})
+assert.deepEqual(projected.docs.settings.componentPolicy, resolvedPolicy)
+assert.deepEqual(projected.docs.settings.authoring, authoring)
+rejects(
+  () =>
+    projectContractCollections(v2Contract, {
+      collections: {
+        docs: {
+          authoring: {
+            ...authoring,
+            policy: { version: 2, components: {} },
+          },
+          fields: {},
+        },
+      },
+    }),
+  'packed CMS V2 authoring policy mismatch',
+)
+
+console.log('packed Content safety and CMS V2 authoring probes passed')

@@ -15,4 +15,5 @@ const contentProvider: ContentProvider = bindContentProvider({
 })
 
 export { contentProvider }
+export { vercelContentCache, type VercelContentCacheOptions } from './nuxt-provider/vercel-cache.js'
 export default contentProvider

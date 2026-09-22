@@ -1,19 +1,22 @@
 import type { JsonObject, NodeKind } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { isEqualJsonValue } from '@lupinum/ginko-cms-contract/shared/utils.js'
+import {
+  EntryDraftSession,
+  entryDraftSnapshot,
+  validateDraftSaveRequest,
+} from '@public/editing/index'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import { buildCmsFieldData } from '@public/utils/cmsFields'
-import type { FunctionArgs } from 'convex/server'
 import type { Ref } from 'vue'
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
+import { z } from 'zod'
 
 import { api } from '../../boundary/api'
+import { getStudioAuthoringSource } from '../../boundary/host-bridge'
 import { useConvexMutation } from '../useStudioConvex'
 import type { useStudioDebug } from '../useStudioDebug'
-import { isConcurrentEditError, isTransientSaveError, OfflineSaveRetry } from './autosaveRecovery'
-import { SaveQueue } from './saveQueue'
+import type { StudioRichtextFlush } from './studioRichtextFlush'
 import type { StudioCollectionConfig, StudioEntry, StudioField } from './types'
-import { studioConfirm } from './useStudioConfirm'
 
 interface EntryDraftDeps {
   entry: Ref<StudioEntry | null>
@@ -32,6 +35,7 @@ interface EntryDraftDeps {
   t: (key: string) => string
   initialized: Ref<boolean>
   refreshEntry: () => Promise<void>
+  richtextFlush: StudioRichtextFlush
 }
 
 export function useEntryDraft(deps: EntryDraftDeps) {
@@ -42,451 +46,256 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     collectionConfig,
     isTree,
     fields,
-    sharedFields,
     localizedFields,
     currentLocale,
     parentPathById,
     canEditEntries,
-    studioDebug,
     t,
     initialized,
-    refreshEntry,
+    richtextFlush,
   } = deps
-
-  const isDirty = ref(false)
-  const saving = ref(false)
-  const error = ref('')
-  const offlineSavePending = ref(false)
-  const saveConflict = ref(false)
-  const lastSaved = ref<Date | null>(null)
-  const hydrating = ref(false)
-  const editSerial = ref(0)
-  const lastPersistedEditSerial = ref(0)
-
-  const saveState = computed<'saving' | 'saved' | 'dirty' | 'conflict' | 'offline-pending'>(() => {
-    if (saveConflict.value) return 'conflict'
-    if (offlineSavePending.value) return 'offline-pending'
-    if (saving.value || saveQueue.active) return 'saving'
-    if (isDirty.value) return 'dirty'
-    return 'saved'
-  })
-
-  const form = reactive({
-    slug: '',
-    kind: 'page',
-    parentEntryId: '',
-    icon: '',
-    badge: '',
-  })
+  const form = reactive({ slug: '', kind: 'page', parentEntryId: '', icon: '', badge: '' })
   const dataFields = reactive<Record<string, unknown>>({})
+  const error = ref('')
+  // Operation dialogs also use this flag while preparing a publish or locale change.
+  const operationSaving = ref(false)
+  const mutation = useConvexMutation(api.ginkoCms.editor.saveEntryDraft)
+  let hydrating = false
+  const identity = () => `${entryId.value}:${currentLocale.value}`
+  let activeIdentity = identity()
 
+  const createSession = () =>
+    reactive(
+      new EntryDraftSession({
+        entryId: entryId.value,
+        canEdit: () => canEditEntries.value,
+        hasPendingEditors: () => richtextFlush.hasPending.value,
+        flushEditors: async () => {
+          const result = await richtextFlush.flush()
+          await nextTick()
+          if (!result.ok) error.value = result.error.message
+          return result.ok
+        },
+        save: (request) => {
+          validateDraftSaveRequest(request)
+          return mutation(request)
+        },
+      }),
+    )
+  const session = ref(createSession())
+  const isDirty = computed(() => session.value.hasPendingWork)
+  const saving = computed({
+    get: () => operationSaving.value || session.value.saving,
+    set: (value) => {
+      operationSaving.value = value
+    },
+  })
+  const saveState = computed(() => session.value.state)
+  const saveConflict = computed(() => session.value.conflicts.length > 0)
+  const conflicts = computed(() => session.value.conflicts)
+  const offlineSavePending = computed(() => session.value.hasUnconfirmedSave)
+  const lastHydratedVersion = computed(() =>
+    session.value.initialized ? session.value.version : null,
+  )
+  const lastSaved = computed(() =>
+    session.value.lastSaved ? new Date(session.value.lastSaved) : null,
+  )
+
+  const localizedSlug = computed(() =>
+    ['localized', 'localizedStable'].includes(
+      collectionConfig.value?.slugMode ?? collectionConfig.value?.routing?.slugMode ?? 'shared',
+    ),
+  )
   const computedPath = computed(() => {
     if (
       collectionConfig.value?.mode === 'none' ||
-      collectionConfig.value?.routing?.mode === 'none'
-    ) {
+      collectionConfig.value?.routing?.mode === 'none' ||
+      !form.slug
+    )
       return ''
-    }
-    if (!form.slug) return ''
-    const parentPath = form.parentEntryId ? parentPathById.value.get(form.parentEntryId) : null
-    if (parentPath) {
-      return `${String(parentPath).replace(/\/$/, '')}/${form.slug}`
-    }
-    const prefix = collectionConfig.value?.pathPrefix?.replace(/\/$/, '') ?? `/${collection.value}`
-    return `${prefix}/${form.slug}`
+    const parent = form.parentEntryId ? parentPathById.value.get(form.parentEntryId) : null
+    const prefix =
+      parent ??
+      collectionConfig.value?.routing?.pathPrefix ??
+      collectionConfig.value?.pathPrefix ??
+      `/${collection.value}`
+    return `${prefix.replace(/\/$/, '')}/${form.slug}`
   })
-
-  const editorContext = computed(() => ({
-    slug: form.slug,
-    ...dataFields,
-  }))
-
+  const editorContext = computed(() => ({ slug: form.slug, ...dataFields }))
   const assetContext = computed(() => ({
     collection: collection.value,
     locale: currentLocale.value,
     entryId: entryId.value,
+    authoringSource: getStudioAuthoringSource(collection.value, collectionConfig.value),
   }))
 
-  // --- Hydrate form from entry data ---
-  // The draft version this form's content is based on. Unlike
-  // `entry.draftVersion` (a live query that advances when ANY session saves),
-  // this only moves on hydrate or our own successful save, so it is the
-  // correct optimistic-concurrency token for saves.
-  const lastHydratedVersion = ref<number | null>(null)
-
-  function isDraftStale() {
-    return (
-      lastHydratedVersion.value != null &&
-      entry.value != null &&
-      entry.value.draftVersion !== lastHydratedVersion.value
-    )
-  }
-
-  function readBodyMdc(value: StudioEntry): string {
-    return typeof value.localeData?.draft?.bodyMdc === 'string'
-      ? value.localeData.draft.bodyMdc
-      : ''
-  }
-
-  function localizedValueFields() {
-    return localizedFields.value.filter((field) => field.type !== 'richtext')
-  }
-
-  function hydrateForm(value: StudioEntry, reason: string) {
-    hydrating.value = true
-    const data =
-      typeof value.data === 'object' && value.data !== null
-        ? (value.data as Record<string, unknown>)
-        : {}
-    studioDebug.debug(`entry:hydrate:${reason}`, {
-      collection: collection.value,
-      entryId: entryId.value,
-      status: value.status,
-      slug: value.slug,
-      draftVersion: value.draftVersion,
-      dataKeys: Object.keys(data),
-    })
-    form.slug = value.slug
-    form.parentEntryId = value.parentEntryId ?? ''
-    form.kind = value.nodeKind ?? 'page'
-    form.icon = typeof data.icon === 'string' ? data.icon : ''
-    form.badge = typeof data.badge === 'string' ? data.badge : ''
+  function hydrateFields() {
+    const patch = session.value.patch
+    const locale = patch.locales?.[currentLocale.value]
+    hydrating = true
+    form.slug = (localizedSlug.value ? locale?.slug : patch.shared?.slug) ?? entry.value?.slug ?? ''
+    form.kind = patch.shared?.nodeKind ?? 'page'
+    form.parentEntryId = patch.shared?.parentEntryId ?? ''
+    form.icon = typeof patch.shared?.shared?.icon === 'string' ? patch.shared.shared.icon : ''
+    form.badge = typeof patch.shared?.shared?.badge === 'string' ? patch.shared.shared.badge : ''
+    for (const key of Object.keys(dataFields))
+      if (!fields.value.some((field) => field.key === key)) Reflect.deleteProperty(dataFields, key)
     for (const field of fields.value) {
       dataFields[field.key] =
-        field.type === 'richtext' ? readBodyMdc(value) : (data[field.key] ?? '')
+        field.type === 'richtext'
+          ? (locale?.bodyMdc ?? '')
+          : ((field.localized ? locale?.values : patch.shared?.shared)?.[field.key] ?? '')
     }
-    isDirty.value = false
-    saveConflict.value = false
-    lastPersistedEditSerial.value = editSerial.value
-    lastHydratedVersion.value = value.draftVersion
-    queueMicrotask(() => {
-      hydrating.value = false
-    })
+    hydrating = false
   }
 
-  // Initial load
   watch(
     [entry, collectionConfig],
     ([value, config]) => {
-      // The entry query often settles before the collection contract. Fields
-      // are derived from that contract, so hydrating earlier permanently
-      // initializes an empty form even though the entry data is present.
-      if (value && config && !initialized.value) {
-        hydrateForm(value, 'loaded')
-        queueMicrotask(() => {
-          initialized.value = true
-        })
+      if (!value || !config || value._id !== entryId.value || value.locale !== currentLocale.value)
+        return
+      if (activeIdentity !== identity()) {
+        session.value.dispose()
+        session.value = createSession()
+        activeIdentity = identity()
       }
+      session.value.receive(entryDraftSnapshot(value))
+      hydrateFields()
+      initialized.value = true
     },
     { immediate: true },
   )
 
-  // Re-hydrate when entry data changes after a restore/rollback/undo/revert.
-  // Called explicitly by the history composable after a successful mutation.
-  let pendingHydrate = false
-  function requestHydrate() {
-    cancelAutoSave()
-    studioDebug.debug('entry:requestHydrate', {
-      collection: collection.value,
-      entryId: entryId.value,
-      currentDraftVersion: entry.value?.draftVersion ?? null,
-      lastHydratedVersion: lastHydratedVersion.value,
-    })
-    // Save-conflict recovery: the live entry is already ahead of this form
-    // (the draftVersion watcher fired and will not fire again), so hydrate
-    // now instead of waiting for a version change that already happened.
-    if (initialized.value && entry.value && isDraftStale()) {
-      hydrateForm(entry.value, 'externalChange')
-      return
-    }
-    pendingHydrate = true
-  }
+  // Deferred query results can be accepted by an autosave acknowledgement,
+  // without another query notification. Keep the form on that accepted state.
   watch(
-    () => entry.value?.draftVersion,
-    (nextVersion, prevVersion) => {
-      studioDebug.debug('entry:draftVersionChanged', {
-        collection: collection.value,
-        entryId: entryId.value,
-        prevVersion: prevVersion ?? null,
-        nextVersion: nextVersion ?? null,
-        pendingHydrate,
-        initialized: initialized.value,
-        hasEntry: !!entry.value,
-      })
-      if (!initialized.value || !entry.value || nextVersion == null) return
-      if (pendingHydrate) {
-        pendingHydrate = false
-        hydrateForm(entry.value, 'externalChange')
+    () => session.value.patch,
+    () => hydrateFields(),
+  )
+
+  // Only changed form values become intent. Untouched empty/default display
+  // values must not replace absent stored fields or another editor's update.
+  watch(
+    () => JSON.stringify(dataFields),
+    (next, previous) => {
+      if (
+        hydrating ||
+        !initialized.value ||
+        activeIdentity !== identity() ||
+        !canEditEntries.value ||
+        previous === undefined
+      )
         return
+      const before = JSON.parse(previous) as Record<string, unknown>
+      const patch = session.value.patch
+      const locale = patch.locales?.[currentLocale.value]
+      for (const field of fields.value) {
+        if (JSON.stringify(before[field.key]) === JSON.stringify(dataFields[field.key])) continue
+        if (field.type === 'richtext') {
+          const body = dataFields[field.key]
+          if (locale) locale.bodyMdc = typeof body === 'string' ? body : ''
+          continue
+        }
+        const target = field.localized ? locale?.values : patch.shared?.shared
+        if (!target) continue
+        const validated = z
+          .record(z.string(), z.json())
+          .parse(buildCmsFieldData([field], dataFields) ?? {})
+        if (Object.hasOwn(validated, field.key)) target[field.key] = validated[field.key]!
+        else Reflect.deleteProperty(target, field.key)
       }
-      // Another session saved a newer draft (our own saves update
-      // lastHydratedVersion before the live query advances).
-      if (nextVersion === lastHydratedVersion.value || saveQueue.active || saving.value) return
-      if (isDirty.value) {
-        // Local unsaved edits would overwrite the newer draft: block instead.
-        cancelAutoSave()
-        saveConflict.value = true
+      session.value.edit(patch)
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    () => ({ ...form }),
+    (next, previous) => {
+      if (hydrating || !initialized.value || activeIdentity !== identity() || !canEditEntries.value)
         return
+      const patch = session.value.patch
+      if (next.slug !== previous.slug) {
+        const target = localizedSlug.value ? patch.locales?.[currentLocale.value] : patch.shared
+        if (target) target.slug = next.slug || null
       }
-      hydrateForm(entry.value, 'externalChange')
+      if (patch.shared && isTree.value) {
+        if (next.kind !== previous.kind) patch.shared.nodeKind = next.kind as NodeKind
+        if (next.parentEntryId !== previous.parentEntryId)
+          patch.shared.parentEntryId = next.parentEntryId || null
+        for (const field of ['icon', 'badge'] as const) {
+          if (next[field] === previous[field] || !patch.shared.shared) continue
+          if (next[field]) patch.shared.shared[field] = next[field]
+          else Reflect.deleteProperty(patch.shared.shared, field)
+        }
+      }
+      session.value.edit(patch)
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    () => session.value.error,
+    (cause) => {
+      error.value = cause
+        ? getCmsErrorMessage(cause, t('ginkoCms.studio.collectionEditor.saveDraftError'))
+        : ''
     },
   )
 
-  // --- Dirty tracking ---
-  watch([() => ({ ...form }), () => ({ ...dataFields })], () => {
-    if (!initialized.value || hydrating.value) return
-    editSerial.value += 1
-    isDirty.value = true
-    if (!isDraftStale()) saveConflict.value = false
-    scheduleAutoSave()
-  })
-
-  // --- Unsaved changes guards ---
-  onBeforeRouteLeave(async () => {
-    // A write in flight is still unsaved until the backend acknowledges it.
-    // Keep the route blocked for both pending and failed local work; the
-    // successful save path clears `isDirty` only after mutation success.
-    if (isDirty.value && canEditEntries.value) {
-      return studioConfirm({
-        title: 'Leave with unsaved changes?',
-        description: t('ginkoCms.studio.collectionEditor.unsavedChanges'),
-        confirmLabel: 'Leave page',
-        confirmVariant: 'destructive',
-      })
-    }
-    return true
-  })
-
-  const offlineRetry = new OfflineSaveRetry()
-
-  async function retryOfflineSave() {
-    if (!offlineRetry.hasPendingRetry || !isDirty.value || !canEditEntries.value) return false
-    const succeeded = await offlineRetry.retry(() => handleSaveDraft(true))
-    offlineSavePending.value = offlineRetry.hasPendingRetry
-    return succeeded
+  async function handleSaveDraft(_silent = false) {
+    const result = await session.value.flush()
+    hydrateFields()
+    return result
   }
+  function requestHydrate() {
+    if (
+      entry.value &&
+      entry.value._id === entryId.value &&
+      entry.value.locale === currentLocale.value
+    )
+      session.value.receive(entryDraftSnapshot(entry.value))
+    hydrateFields()
+  }
+  function resolveConflict(path: string[], choice: 'mine' | 'shared') {
+    session.value.resolve(path, choice)
+    hydrateFields()
+  }
+  function buildSharedData(): JsonObject | undefined {
+    return session.value.patch.shared?.shared
+  }
+  function buildLocalizedData(source: Record<string, unknown>) {
+    return buildCmsFieldData(
+      localizedFields.value.filter((field) => field.type !== 'richtext'),
+      source,
+    )
+  }
+  const cancelAutoSave = () => session.value.cancelAutoSave()
+  const retryOfflineSave = () => handleSaveDraft(true)
+  const guard = async () => !session.value.hasPendingWork || (await handleSaveDraft(true))
+  onBeforeRouteLeave(guard)
+  onBeforeRouteUpdate(guard)
 
   if (typeof window !== 'undefined') {
-    const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
-      if (isDirty.value) {
-        event.preventDefault()
-      }
+    const unload = (event: BeforeUnloadEvent) => {
+      if (session.value.hasPendingWork) event.preventDefault()
     }
-    const keyboardSaveHandler = (event: KeyboardEvent) => {
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        event.key.toLowerCase() === 's' &&
-        canEditEntries.value
-      ) {
+    const keydown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault()
         void handleSaveDraft()
       }
     }
-    window.addEventListener('beforeunload', beforeUnloadHandler)
-    window.addEventListener('keydown', keyboardSaveHandler)
+    window.addEventListener('beforeunload', unload)
+    window.addEventListener('keydown', keydown)
     window.addEventListener('online', retryOfflineSave)
     onBeforeUnmount(() => {
-      window.removeEventListener('beforeunload', beforeUnloadHandler)
-      window.removeEventListener('keydown', keyboardSaveHandler)
+      window.removeEventListener('beforeunload', unload)
+      window.removeEventListener('keydown', keydown)
       window.removeEventListener('online', retryOfflineSave)
     })
   }
-
-  // --- Data builders ---
-  function buildSharedData() {
-    const data: Record<string, unknown> = buildCmsFieldData(sharedFields.value, dataFields) ?? {}
-    if (isTree.value) {
-      if (form.icon) data.icon = form.icon
-      if (form.badge) data.badge = form.badge
-    }
-    return Object.keys(data).length > 0 ? data : undefined
-  }
-
-  function buildLocalizedData(source: Record<string, unknown>) {
-    return buildCmsFieldData(localizedValueFields(), source)
-  }
-
-  function buildBodyMdc(source: Record<string, unknown>) {
-    const richtextField = localizedFields.value.find((field) => field.type === 'richtext')
-    if (!richtextField) return undefined
-    const value = source[richtextField.key]
-    return typeof value === 'string' ? value : ''
-  }
-
-  // --- Mutations ---
-  const saveEntryDraftMutation = useConvexMutation(api.ginkoCms.editor.saveEntryDraft)
-
-  let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-
-  function cancelAutoSave() {
-    if (autoSaveTimer) {
-      clearTimeout(autoSaveTimer)
-      autoSaveTimer = null
-    }
-  }
-
-  function scheduleAutoSave() {
-    if (!initialized.value || hydrating.value || !isDirty.value || !canEditEntries.value) return
-    if (saveConflict.value) return
-    cancelAutoSave()
-    autoSaveTimer = setTimeout(() => {
-      void handleSaveDraft(true)
-    }, 3000)
-  }
-
-  const saveQueue = new SaveQueue(async (runSilent) => {
-    error.value = ''
-    saveConflict.value = false
-    const currentEntry = entry.value
-    if (!currentEntry) return false
-    if (isDraftStale()) {
-      // A newer draft exists on the server; refuse to overwrite it.
-      cancelAutoSave()
-      saveConflict.value = true
-      studioDebug.debug('saveDraft:staleBlocked', {
-        collection: collection.value,
-        entryId: entryId.value,
-        baseVersion: lastHydratedVersion.value,
-        serverVersion: currentEntry.draftVersion,
-      })
-      return false
-    }
-    if (!runSilent) {
-      studioDebug.debug('saveDraft:start', {
-        collection: collection.value,
-        entryId: entryId.value,
-        slug: form.slug,
-        path: computedPath.value,
-      })
-    }
-
-    try {
-      const slugMode =
-        collectionConfig.value?.slugMode ?? collectionConfig.value?.routing?.slugMode ?? 'shared'
-      const currentSlug = currentEntry.slug ?? currentEntry.baseSlug
-      const nextSharedData = (buildSharedData() ?? {}) as JsonObject
-      const currentSharedData = (currentEntry.draft ?? {}) as JsonObject
-      const nextLocalizedData = (buildLocalizedData(dataFields) ?? {}) as JsonObject
-      const currentLocalizedData = (currentEntry.localeData?.draft.values ?? {}) as JsonObject
-      const nextBodyMdc = buildBodyMdc(dataFields)
-      const currentBodyMdc = currentEntry.localeData?.draft.bodyMdc ?? ''
-      const sharedChanged =
-        !isEqualJsonValue(currentSharedData, nextSharedData) ||
-        (isTree.value && form.kind !== (currentEntry.nodeKind ?? 'page'))
-      const localizedChanged = !isEqualJsonValue(currentLocalizedData, nextLocalizedData)
-      const bodyMdcChanged =
-        nextBodyMdc !== undefined && (currentBodyMdc ?? '') !== (nextBodyMdc ?? '')
-      const parentChanged =
-        isTree.value && form.parentEntryId !== (currentEntry.parentEntryId ?? '')
-
-      const routeBacked =
-        collectionConfig.value?.mode !== 'none' && collectionConfig.value?.routing?.mode !== 'none'
-      const slugChanged = routeBacked && !!form.slug && form.slug !== currentSlug
-      const sharedPatch: {
-        parentEntryId?: string | null
-        slug?: string | null
-        shared?: JsonObject
-        nodeKind?: NodeKind
-      } = {}
-      if (slugChanged && slugMode !== 'localized' && slugMode !== 'localizedStable') {
-        sharedPatch.slug = form.slug
-      }
-      if (sharedChanged) {
-        sharedPatch.shared = nextSharedData
-        if (isTree.value) sharedPatch.nodeKind = form.kind as NodeKind
-      }
-      if (parentChanged) {
-        sharedPatch.parentEntryId = form.parentEntryId || null
-      }
-      const localePatch: {
-        slug?: string | null
-        values?: JsonObject
-        bodyMdc?: string | null
-      } = {}
-      if (slugChanged && (slugMode === 'localized' || slugMode === 'localizedStable')) {
-        localePatch.slug = form.slug
-      }
-      if (localizedChanged) {
-        localePatch.values = nextLocalizedData
-      }
-      if (bodyMdcChanged) {
-        localePatch.bodyMdc = nextBodyMdc
-      }
-
-      const saveResult = await saveEntryDraftMutation({
-        entryId: entryId.value,
-        expectedDraftVersion: lastHydratedVersion.value ?? currentEntry.draftVersion,
-        patch: {
-          ...(Object.keys(sharedPatch).length > 0 ? { shared: sharedPatch } : {}),
-          ...(Object.keys(localePatch).length > 0
-            ? { locales: { [currentLocale.value]: localePatch } }
-            : {}),
-        } as FunctionArgs<typeof api.ginkoCms.editor.saveEntryDraft>['patch'],
-      })
-      const draftVersion = saveResult?.draftVersion ?? currentEntry.draftVersion
-      // Advance the base version before the live query catches up so the
-      // external-change watcher does not treat our own save as a conflict.
-      lastHydratedVersion.value = draftVersion
-      await refreshEntry()
-      lastSaved.value = new Date()
-      offlineRetry.clear()
-      offlineSavePending.value = false
-      if (!runSilent) {
-        studioDebug.debug('saveDraft:success', {
-          collection: collection.value,
-          entryId: entryId.value,
-          draftVersion,
-        })
-      }
-      return true
-    } catch (e) {
-      error.value = getCmsErrorMessage(e, t('ginkoCms.studio.collectionEditor.saveDraftError'))
-      if (isConcurrentEditError(e)) {
-        offlineRetry.clear()
-        offlineSavePending.value = false
-        saveConflict.value = true
-      } else if (isTransientSaveError(e)) {
-        offlineRetry.markPending()
-        offlineSavePending.value = true
-      }
-      studioDebug.error('saveDraft:error', {
-        collection: collection.value,
-        entryId: entryId.value,
-        silent: runSilent,
-        error: e,
-      })
-      return false
-    }
-  })
-
-  async function handleSaveDraft(silent = false) {
-    if (!canEditEntries.value) return false
-
-    cancelAutoSave()
-    const requestedEditSerial = editSerial.value
-    if (!silent) {
-      saving.value = true
-    }
-
-    try {
-      const succeeded = await saveQueue.enqueue({ silent })
-      if (succeeded) {
-        lastPersistedEditSerial.value = requestedEditSerial
-        if (editSerial.value === requestedEditSerial) {
-          isDirty.value = false
-        } else {
-          isDirty.value = true
-          scheduleAutoSave()
-        }
-      }
-      return succeeded
-    } finally {
-      if (!saveQueue.active) {
-        saving.value = false
-      }
-    }
-  }
-
+  onBeforeUnmount(() => session.value.dispose())
   return {
     isDirty,
     saving,
@@ -494,6 +303,8 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     error,
     offlineSavePending,
     saveConflict,
+    conflicts,
+    resolveConflict,
     lastHydratedVersion,
     lastSaved,
     form,

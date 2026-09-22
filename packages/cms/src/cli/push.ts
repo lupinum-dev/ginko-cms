@@ -9,6 +9,7 @@ import { createJiti } from 'jiti'
 
 import {
   loadGinkoContentContract,
+  projectCmsPresentation,
   type ContentRuntimePolicyInput,
 } from '../module/content-contract.js'
 import { readExpectedContractBinding } from '../module/convex.js'
@@ -69,10 +70,11 @@ export async function loadContentConfig(
   }
   return {
     content: config.content?.i18n,
-    presentation:
+    presentation: projectCmsPresentation(
       config.ginkoCms && typeof config.ginkoCms === 'object'
         ? (config.ginkoCms.editorialLayout ?? { collections: {} })
         : { collections: {} },
+    ),
   }
 }
 

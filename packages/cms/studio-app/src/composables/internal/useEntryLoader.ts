@@ -37,10 +37,12 @@ export function useEntryLoader() {
   const entryQuery = useCmsStudioQuery(
     api.ginkoCms.editor.getEntry,
     computed(() => ({ id: entryId.value, locale: routeLocale.value })),
+    { keepPreviousData: false },
   )
   const collectionSchemaQuery = useCmsStudioQuery(
     api.ginkoCms.collections.getCollection,
     computed(() => ({ slug: collection.value })),
+    { keepPreviousData: false },
   )
   const collectionConfig = computed<StudioCollectionConfig | null>(
     () => (collectionSchemaQuery.data.value as StudioCollectionConfig | null | undefined) ?? null,
@@ -111,7 +113,9 @@ export function useEntryLoader() {
     localizedFields.value.filter((field) => !heroFieldKeys.value.has(field.key)),
   )
   const localeVariants = computed(() => entry.value?.localeVariants ?? [])
-  const currentLocale = computed(() => entry.value?.locale ?? routeLocale.value)
+  // The route identifies the requested language even while its query is loading.
+  // A previous result or rendered fallback must never select the write locale.
+  const currentLocale = routeLocale
   const parentPathById = ref(new Map<string, string>())
   function recordParentSelection(value: { id: string; path: string } | null) {
     if (!value) return

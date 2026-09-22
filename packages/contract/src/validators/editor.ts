@@ -30,6 +30,7 @@ const completionStateValidator = v.object({
 
 const localizedEntryValidator = v.object({
   locale: v.string(),
+  draftId: v.union(v.string(), v.null()),
   draftExists: v.boolean(),
   entryId: v.string(),
   draftSlug: v.union(v.string(), v.null()),
@@ -69,6 +70,7 @@ const schemaInfoValidator = v.object({
 })
 
 const localeDataValidator = v.object({
+  draftId: v.union(v.string(), v.null()),
   draftSlug: v.union(v.string(), v.null()),
   draftPath: v.string(),
   publishedSlug: v.union(v.string(), v.null()),

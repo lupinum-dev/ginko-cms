@@ -9,7 +9,15 @@ import { describe, expect, it } from 'vitest'
 
 import { getCmsErrorData } from '#ginko-cms-public/utils/cmsErrors'
 
-import { createCtx, currentDraftVersion, publishEntry, seedOwner } from './entries/helpers'
+import { assetDiscoveryFields } from '../../packages/convex/src/assets/scope'
+import { imageAuthoring } from '../../playground/image-authoring'
+import {
+  createCtx,
+  currentDraftVersion,
+  publishEntry,
+  seedOwner,
+  seedStorageObject,
+} from './entries/helpers'
 
 const api = anyApi
 
@@ -30,7 +38,7 @@ describe('draftPreview.getDraftPreview', () => {
   ) {
     const content = buildResolvedContentContract(
       { collections },
-      { defaultLocale: 'en', locales: ['en'] },
+      { defaultLocale: 'en', locales: ['en'], componentPolicy: imageAuthoring.policy },
     )
     const presentation = { collections: {} }
     await ctx.raw.mutation(api.contract.installCmsContract, {
@@ -72,7 +80,7 @@ describe('draftPreview.getDraftPreview', () => {
       path: '/posts/preview-me',
       publishedPath: null,
     })
-    expect(JSON.stringify(preview.bodyAst)).toContain('Draft-only paragraph.')
+    expect(preview.bodyAstJson).toContain('Draft-only paragraph.')
 
     // The draft stays invisible to the public provider.
     const page = await ctx.published.query(api.public.page, {
@@ -108,7 +116,7 @@ describe('draftPreview.getDraftPreview', () => {
     })
 
     expect(preview.title).toBe('Unpublished new title')
-    expect(JSON.stringify(preview.bodyAst)).toContain('Unpublished revision.')
+    expect(preview.bodyAstJson).toContain('Unpublished revision.')
     expect(preview.publishedPath).toBe('/posts/preview-me')
 
     // Public output still serves the published revision.
@@ -119,6 +127,93 @@ describe('draftPreview.getDraftPreview', () => {
     })
     expect(page.status).toBe('found')
     expect(page.page.title).toBe('Draft preview title')
+  })
+
+  it('resolves the actual Editor image source while preserving metadata and stored identity', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    await installContract(ctx, {
+      posts: {
+        type: 'page',
+        source: 'content/posts/**/*.md',
+        route: '/posts',
+        i18n: true,
+        cms: { type: 'flat' },
+      },
+    })
+    const storageId = await seedStorageObject(ctx, { bytes: 'image-fixture', type: 'image/png' })
+    const createdAt = Date.now()
+    const assetId = await ctx.seed('assets', {
+      storageId,
+      filename: 'canopy.png',
+      mimeType: 'image/png',
+      size: 13,
+      sha256: 'a'.repeat(64),
+      width: 960,
+      height: 640,
+      frames: 1,
+      alt: null,
+      caption: null,
+      scope: 'collection',
+      collection: 'posts',
+      entryId: null,
+      tags: [],
+      createdBy: 'owner-1',
+      updatedBy: null,
+      createdAt,
+      updatedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+      ...assetDiscoveryFields({
+        filename: 'canopy.png',
+        mimeType: 'image/png',
+        tags: [],
+        createdAt,
+        updatedAt: null,
+        deletedAt: null,
+      }),
+    })
+    const bodyMdc = `# A garden for everyone
+
+::image
+\`\`\`yaml [props]
+id: ${assetId}
+filename: canopy.png
+src: ${assetId}
+alt: Illustrated green tree canopies seen from above
+title: Synthetic local image for editorial testing
+width: 960
+height: 640
+\`\`\`
+::
+
+The garden is open.`
+    const owner = ctx.asCmsUser('owner-1')
+    const entryId = await owner.createEntry({ collection: 'posts', slug: 'garden', bodyMdc })
+    const preview = await owner.query(api.draftPreview.getDraftPreview, { entryId, locale: 'en' })
+    const image = JSON.parse(preview.bodyAstJson).children.find(
+      (node: { tag?: string }) => node.tag === 'image',
+    )
+    expect(image.props).toMatchObject({
+      id: assetId,
+      filename: 'canopy.png',
+      alt: 'Illustrated green tree canopies seen from above',
+      title: 'Synthetic local image for editorial testing',
+      width: '960',
+      height: '640',
+    })
+    expect(preview.bodyAstJson).toContain('"$"')
+    expect(image.props.src).toMatch(/^https:\/\//)
+    expect(image.props.src).not.toBe(assetId)
+    const stored = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
+    expect(stored.localeData.draft.bodyMdc).toBe(bodyMdc)
+    expect(await ctx.readAll('publicEntries')).toHaveLength(0)
+    await ctx.raw.run(async (dbCtx) => {
+      await dbCtx.db.patch(assetId, { deletedAt: Date.now() })
+    })
+    await expect(
+      owner.query(api.draftPreview.getDraftPreview, { entryId, locale: 'en' }),
+    ).rejects.toThrow()
   })
 
   it('denies callers without CMS read access', async () => {

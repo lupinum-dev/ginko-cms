@@ -1,8 +1,8 @@
 import type { CmsField, JsonValue, LocaleText } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   assertResolvedContentContract,
-  type ResolvedContentCollectionV1,
-  type ResolvedContentContractV1,
+  type ResolvedContentCollection,
+  type ResolvedContentContract,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
 import { v } from 'convex/values'
@@ -15,7 +15,7 @@ type JsonRecord = Record<string, JsonValue>
 
 export type InstalledCmsContract = {
   record: Doc<'cmsContract'>
-  content: ResolvedContentContractV1
+  content: ResolvedContentContract
 }
 
 export type ExpectedCmsContract = {
@@ -111,7 +111,7 @@ export function projectContentField(
   }
 }
 
-function collectionSettings(collection: ResolvedContentCollectionV1): JsonValue {
+function collectionSettings(collection: ResolvedContentCollection): JsonValue {
   return {
     defaultLocale: collection.defaultLocale,
     localizedPathPrefixes: collection.routing.localizedPathPrefixes,
@@ -123,7 +123,7 @@ function collectionSettings(collection: ResolvedContentCollectionV1): JsonValue 
 }
 
 export function projectContentCollection(
-  collection: ResolvedContentCollectionV1,
+  collection: ResolvedContentCollection,
   installed: {
     contentHash: string
     presentation: JsonValue

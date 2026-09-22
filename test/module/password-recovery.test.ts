@@ -116,4 +116,32 @@ describe('[ACC-05] password recovery delivery boundary', () => {
     }
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('rejects unsafe verification delivery and propagates failure instead of pretending delivery succeeded', async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 503 }))
+    globalThis.fetch = fetchMock
+    process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_TOKEN = 'secret'
+    const input = {
+      user: { email: 'member@example.test', name: 'CMS Member' },
+      url: 'https://deployment.example.test/api/auth/verify-email?token=one-time-token',
+    }
+    for (const endpoint of [
+      '',
+      'http://mailer.example.test/verify',
+      'https://user:password@mailer.example.test/verify',
+    ]) {
+      process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL = endpoint
+      await expect(sendGinkoVerificationEmail(input)).rejects.toThrow()
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    process.env.GINKO_CMS_EMAIL_VERIFICATION_WEBHOOK_URL = 'https://mailer.example.test/verify'
+    await expect(sendGinkoVerificationEmail(input)).rejects.toThrow(
+      'Email verification delivery failed with status 503.',
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://mailer.example.test/verify',
+      expect.objectContaining({ redirect: 'error', signal: expect.any(AbortSignal) }),
+    )
+  })
 })

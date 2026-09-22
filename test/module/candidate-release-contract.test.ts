@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T
 
@@ -47,7 +48,8 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms': '0.2.0-rc.3',
       '@lupinum/ginko-cms-convex': '0.2.0-rc.3',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.3',
-      '@lupinum/ginko-content': '1.0.0-beta.8',
+      '@lupinum/ginko-content': '1.0.0-beta.9',
+      '@lupinum/ginko-editor': '0.1.0',
       '@lupinum/better-convex-mcp': '1.0.0-beta.1',
       '@lupinum/better-convex-nuxt': '1.0.0-beta.5',
       '@lupinum/better-convex-vue': '1.0.0-beta.5',
@@ -68,6 +70,7 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/better-convex-nuxt',
       '@lupinum/better-convex-vue',
       '@lupinum/ginko-content',
+      '@lupinum/ginko-editor',
     ])
     for (const [name, version] of Object.entries(compatibility.releaseStack)) {
       const artifact = compatibility.releaseArtifacts[name]
@@ -186,14 +189,26 @@ describe('coordinated CMS candidate release contract', () => {
     )
   })
 
-  it('keeps committed workspace resolution machine-independent', () => {
-    const workspace = readFileSync('pnpm-workspace.yaml', 'utf8')
+  it('limits local resolution to the explicitly tracked review candidates', () => {
+    const workspace = parse(readFileSync('pnpm-workspace.yaml', 'utf8'))
     const lockfile = readFileSync('pnpm-lock.yaml', 'utf8')
-
-    expect(workspace).not.toMatch(/(?:@lupinum\/ginko-content|@lupinum\/better-convex-nuxt): file:/)
-    expect(lockfile).not.toMatch(/(?:ginko-content|@lupinum\/better-convex-nuxt)@file:/)
+    const compatibility = readJson<{
+      releaseArtifacts: Record<string, { releaseCertification: string; sha256: string }>
+    }>('packages/cms/compatibility.json')
+    const candidates = {
+      '@lupinum/ginko-content': 'file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz',
+      '@lupinum/ginko-editor': 'file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz',
+    }
+    expect(workspace.overrides).toEqual(candidates)
+    for (const name of Object.keys(candidates)) {
+      expect(compatibility.releaseArtifacts[name]?.releaseCertification).toBe(
+        'local-source-candidate-only',
+      )
+      expect(compatibility.releaseArtifacts[name]?.sha256).toMatch(/^[a-f0-9]{64}$/)
+    }
+    expect(lockfile).not.toMatch(/(?:file|link):(?:\/Users\/|\/home\/|[A-Z]:)/)
+    expect(lockfile).not.toContain('@lupinum/better-convex-nuxt@file:')
     expect(lockfile).not.toContain('127.0.0.1')
-    expect(lockfile).not.toContain('.pack/')
     expect(() => readFileSync('.npmrc', 'utf8')).toThrow()
   })
 

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import axe from 'axe-core'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive, ref } from 'vue'
@@ -65,6 +65,25 @@ function installTestLocalStorage(): () => void {
     delete (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage
   }
 }
+
+vi.mock(
+  '../../packages/cms/studio-app/src/components/studio/fields/StudioRichtextImageLibrary.vue',
+  () => ({
+    default: defineComponent({
+      name: 'StudioRichtextImageLibrary',
+      setup(_, { emit, expose }) {
+        expose({
+          pick: async () => {
+            emit('resolved', 'newly-selected-asset', 'https://example.com/new-image.png')
+            return { id: 'newly-selected-asset', url: 'https://example.com/new-image.png' }
+          },
+          upload: vi.fn(),
+        })
+        return () => h('div')
+      },
+    }),
+  }),
+)
 
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () => ({
   useCmsStudioQuery: () => ({
@@ -422,6 +441,7 @@ function createLocalePanelEditor() {
       secondaryDataFields: { title: 'Sicherheitsverbesserungen' },
       secondaryEditorContext: {},
       secondaryLocale: 'de',
+      translationMode: true,
     },
   })
 }
@@ -638,6 +658,10 @@ function railEditor(translate = dictionaryT(en)) {
     history: {},
     loader: {
       currentLocale: 'en',
+      locales: [
+        { code: 'en', label: 'English' },
+        { code: 'de', label: 'Deutsch' },
+      ],
       dateLocale: 'en',
       entry: { draftVersion: 7, publishedAt: null, status: 'draft' },
       entryId: 'entry-1',
@@ -672,9 +696,9 @@ describe('Studio workflow components', () => {
     const urlRows = wrapper.findAll('.studio-locale-panel__localized-url')
 
     expect(urlRows).toHaveLength(2)
-    expect(urlRows[0]?.text()).toContain('This URL slug belongs to EN only.')
-    expect((urlRows[1]?.find('input').element as HTMLInputElement).value).toBe('Managed in EN')
-    expect(urlRows[1]?.text()).toContain('URL managed in EN.')
+    expect(urlRows[0]?.text()).toContain('This URL slug belongs to English only.')
+    expect((urlRows[1]?.find('input').element as HTMLInputElement).value).toBe('Managed in English')
+    expect(urlRows[1]?.text()).toContain('URL managed in English.')
     expect(wrapper.text()).toContain('Title')
   })
 
@@ -683,8 +707,7 @@ describe('Studio workflow components', () => {
     const panels = wrapper.findAll('section.studio-locale-panel')
 
     expect(panels).toHaveLength(2)
-    expect(panels[0]!.text()).toContain('Editing')
-    expect(panels[1]!.text()).toContain('Read only')
+    expect(panels[0]!.text()).toContain('English')
     expect(panels[1]!.text()).toContain('This language stays read only')
     expect(
       panels[1]!
@@ -694,7 +717,7 @@ describe('Studio workflow components', () => {
 
     const editButton = panels[1]!
       .findAll('button')
-      .find((button) => button.text().includes('Edit DE'))
+      .find((button) => button.text().includes('Edit Deutsch'))
     expect(editButton).toBeTruthy()
     await editButton!.trigger('click')
 
@@ -824,11 +847,11 @@ describe('Studio workflow components', () => {
     // S2, say-it-once): the default rail leads with status + blockers.
     expect(wrapper.text()).not.toContain('Publishing flow')
     expect(wrapper.text()).toContain('Needs work')
-    expect(wrapper.text()).toContain('EN: Required translation field is missing: title')
+    expect(wrapper.text()).toContain('English: Required translation field is missing: title')
     expect(wrapper.text()).not.toContain('No blocking issues')
   })
 
-  it('shows preview, review, and publish progress in the editor workflow spine', () => {
+  it('keeps publishing diagnostics out of the focused language list', () => {
     // The spine only renders behind the "More details" preference (design
     // review S2); it is a plain persisted toggle now.
     const advanced = useStudioAdvancedEditor()
@@ -851,16 +874,14 @@ describe('Studio workflow components', () => {
       translationReadiness: [],
     })
 
-    expect(wrapper.text()).toContain('Publishing flow')
-    expect(wrapper.text()).toContain('Website changes are ready to review.')
-    expect(wrapper.text()).toContain('Prepared')
-    expect(wrapper.text()).toContain('Reviewed')
-    expect(wrapper.text()).toContain('Publish the approved website changes.')
+    expect(wrapper.text()).not.toContain('Publishing flow')
+    expect(wrapper.text()).not.toContain('Website changes are ready to review.')
+    expect(wrapper.text()).toContain('English')
 
     advanced.value = false
   })
 
-  it('tracks live website state, language rollout, and refresh health in the editor rail', () => {
+  it('shows published language status without duplicating website diagnostics', () => {
     const editor = railEditor()
     editor.loader.entry = { draftVersion: 8, publishedAt: 1, status: 'published' }
     const wrapper = mountWithStudioContext(StudioEntryStatusRail, editor, {
@@ -886,14 +907,11 @@ describe('Studio workflow components', () => {
       translationReadiness: [],
     })
 
-    expect(wrapper.text()).toContain('Track live website')
-    // The redesigned track card states the live fact once via Status: Live
-    // (say-it-once); the former "Live now" pill was removed deliberately.
-    expect(wrapper.text()).toContain('Status')
-    expect(wrapper.text()).toContain('Live since')
-    expect(wrapper.text()).toContain('/hello')
-    expect(wrapper.text()).toContain('ENLive')
-    expect(wrapper.text()).toContain('No website refresh issues reported.')
+    expect(wrapper.text()).not.toContain('Track live website')
+    expect(wrapper.text()).not.toContain('Live since')
+    expect(wrapper.text()).not.toContain('/hello')
+    expect(wrapper.text()).toContain('English')
+    expect(wrapper.text()).toContain('Published')
   })
 
   it('shows a post-publish Track outcome with affected pages and refresh status', () => {
@@ -1147,7 +1165,7 @@ describe('Studio workflow components', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Current live page')
+    expect(wrapper.text()).toContain('Currently published address')
     expect(wrapper.text()).toContain('After publish')
     expect(wrapper.text()).toContain('Page address')
     expect(wrapper.text()).toContain('Page URL')
@@ -1410,6 +1428,43 @@ describe('Studio workflow components', () => {
     }
   })
 
+  it('resolves a newly selected image before the editor paints its stored id', async () => {
+    const wrapper = mount(FieldRichtext, {
+      props: {
+        field: { key: 'body', type: 'richtext', required: false, description: null },
+        modelValue: '',
+        label: 'Body',
+        fieldError: null,
+        assetContext: { collection: 'docs', entryId: 'entry-1', locale: 'en' },
+      },
+      global: {
+        stubs: {
+          Button: { template: '<button type="button"><slot /></button>' },
+          Icon: { template: '<span />' },
+          StudioAssetMetadataDialog: { template: '<div />' },
+          StudioAssetPicker: {
+            name: 'StudioAssetPicker',
+            props: ['kind'],
+            emits: ['select-asset'],
+            template: '<div />',
+          },
+          StudioFieldShell: { template: '<section><slot name="action" /><slot /></section>' },
+        },
+      },
+    })
+    try {
+      await flushPromises()
+      const shared = wrapper.findComponent({ name: 'GinkoEditor' })
+      const provider = shared.props('assetProvider')
+      const chosen = await shared.props('imagePicker')({ signal: new AbortController().signal })
+      expect(chosen.id).toBe('newly-selected-asset')
+      expect(provider.buildUrl({ id: chosen.id })).toBe('https://example.com/new-image.png')
+      expect(shared.props('enableVideo')).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('does not dirty rich text while disabled', async () => {
     const wrapper = mount(FieldRichtext, {
       props: {
@@ -1431,20 +1486,86 @@ describe('Studio workflow components', () => {
           StudioAssetMetadataDialog: { template: '<div />' },
           StudioAssetPicker: { template: '<div />' },
           StudioFieldShell: { template: '<section><slot name="action" /><slot /></section>' },
-          RichtextEditor: defineComponent({
-            props: { disabled: Boolean, modelValue: String },
-            emits: ['update:modelValue'],
-            template:
-              '<button type="button" data-testid="richtext-editor" :data-disabled="String(disabled)" @click="$emit(\'update:modelValue\', \'Changed\')">{{ modelValue }}</button>',
-          }),
         },
       },
     })
 
-    const editor = wrapper.get('[data-testid="richtext-editor"]')
-    expect(editor.attributes('data-disabled')).toBe('true')
-    await editor.trigger('click')
+    const editor = wrapper.get('textarea[aria-label="Body markdown source"]')
+    expect(editor.attributes()).toHaveProperty('disabled')
+    await editor.setValue('Changed')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('loads collection authoring metadata into the shared rich text editor', async () => {
+    const wrapper = mount(FieldRichtext, {
+      props: {
+        field: {
+          key: 'body',
+          type: 'richtext',
+          required: false,
+          description: null,
+        },
+        modelValue: '',
+        label: 'Body',
+        fieldError: null,
+        assetContext: {
+          collection: 'docs',
+          entryId: 'entry-1',
+          locale: 'en',
+          authoringSource: {
+            version: 1,
+            implementation: {
+              note: {
+                componentName: 'DocsNote',
+                props: {},
+                slots: ['default'],
+              },
+            },
+            policy: {
+              version: 2,
+              components: {
+                note: {
+                  kind: 'block',
+                  props: {},
+                  slots: ['default'],
+                  allowedParents: null,
+                  allowedChildren: null,
+                  media: null,
+                },
+              },
+            },
+            authoring: {
+              note: {
+                label: 'Documentation note',
+                slots: { default: { label: 'Content' } },
+              },
+            },
+            recipes: [
+              {
+                id: 'documentation-note',
+                label: 'Documentation note',
+                source: '<note>\nUseful context.\n</note>',
+              },
+            ],
+          },
+        },
+      },
+      global: {
+        stubs: {
+          Button: { template: '<button type="button"><slot /></button>' },
+          Icon: { template: '<span />' },
+          StudioAssetMetadataDialog: { template: '<div />' },
+          StudioAssetPicker: { template: '<div />' },
+          StudioFieldShell: { template: '<section><slot name="action" /><slot /></section>' },
+        },
+      },
+    })
+
+    await vi.waitFor(() =>
+      expect(wrapper.find('button[aria-label="Insert block"]').exists()).toBe(true),
+    )
+    await wrapper.get('button[aria-label="Insert block"]').trigger('click')
+    expect(wrapper.text()).toContain('Documentation note')
   })
 
   it.each([
@@ -1758,10 +1879,8 @@ describe('Studio destructive dialogs', () => {
     const buttons = wrapper.findAll('button')
     const confirm = buttons[buttons.length - 1]
 
-    expect(wrapper.text()).toContain('No blocking issues')
-    expect(wrapper.text()).toContain(
-      'Review what will change on the website before this goes live.',
-    )
+    expect(wrapper.text()).toContain('Ready to publish')
+    expect(wrapper.text()).toContain('These changes will become visible to website visitors.')
     expect(confirm.attributes('disabled')).toBeUndefined()
   })
 
@@ -1780,6 +1899,133 @@ describe('Studio destructive dialogs', () => {
     expect(wrapper.find('a[href="/preview/posts/entry-1?locale=en"]').exists()).toBe(true)
   })
 
+  it('does not turn an unchanged published page next action into a blocking issue', () => {
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true), {
+      readinessDetail: {
+        ...baseReadinessDetail,
+        locales: [
+          {
+            ...baseReadinessDetail.locales[0],
+            canPublish: false,
+            published: true,
+            publicUrl: '/hello',
+            hasUnpublishedChanges: false,
+            state: 'live',
+            nextAction: { kind: 'view_live', locale: 'en', params: {}, target: 'website' },
+          },
+        ],
+      },
+      publishImpact: readyPublishImpact,
+      publishImpactRequested: true,
+      publishReview,
+    })
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[role="status"]').text()).toContain('Ready to publish')
+    expect(wrapper.text()).not.toContain('Issues blocking publish')
+    expect(wrapper.findAll('button').at(-1)!.attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('waits for the selected language impact instead of guessing its future address', () => {
+    const editor = fakeEditor('pending')
+    editor.loader.currentLocale = 'de'
+    const wrapper = mountWithStudioContext(StudioPublishDialog, editor, {
+      readinessDetail: baseReadinessDetail,
+      publishImpact: readyPublishImpact,
+      publishImpactRequested: true,
+      publishReview,
+    })
+    expect(wrapper.text()).toContain('Loading...')
+    expect(wrapper.text()).not.toContain('/hello')
+    expect(wrapper.text()).not.toContain('/old-page')
+    expect(wrapper.find('a[aria-label="Open published page"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('presents an initial publication check as neutral loading while confirmation is disabled', () => {
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('pending'))
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[role="status"]').text()).toContain('Loading...')
+    expect(wrapper.text()).not.toContain('Ready to publish')
+    expect(wrapper.text()).not.toContain('Issues blocking publish')
+    expect(wrapper.findAll('button').at(-1)!.attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('shows the planned address without a published link for an unpublished language', () => {
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true), {
+      readinessDetail: baseReadinessDetail,
+      publishImpact: {
+        ...readyPublishImpact,
+        locales: [{ ...readyPublishImpact.locales[0], currentHref: null, currentPath: null }],
+      },
+      publishImpactRequested: true,
+      publishReview,
+    })
+    expect(wrapper.text()).toContain('Publish English?')
+    expect(wrapper.text()).toContain('Page address after publishing')
+    expect(wrapper.text()).toContain('/hello')
+    expect(wrapper.find('a[aria-label="Open published page"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Current language (EN)')
+    wrapper.unmount()
+  })
+
+  it('links only the published address while showing the future destination separately', () => {
+    const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true), {
+      readinessDetail: {
+        ...baseReadinessDetail,
+        locales: [{ ...baseReadinessDetail.locales[0], published: true, publicUrl: '/old-page' }],
+      },
+      publishImpact: readyPublishImpact,
+      publishImpactRequested: true,
+      publishReview,
+    })
+    expect(wrapper.get('a[aria-label="Open published page"]').attributes('href')).toBe('/old-page')
+    expect(wrapper.text()).toContain('English page address changes from /old-page to /hello.')
+    wrapper.unmount()
+  })
+
+  it('keeps delivery and notes closed while shared-impact warnings stay visible', () => {
+    const base = fakeEditor('ready', true)
+    const editor = {
+      ...base,
+      publishing: {
+        ...base.publishing,
+        publishSession: {
+          ...base.publishing.publishSession,
+          preview: {
+            allowed: true,
+            summary: 'Publish English',
+            blockers: [],
+            warnings: [
+              { code: 'shared-impact', message: 'Shared footer changes affect both languages.' },
+            ],
+            effects: [],
+          },
+        },
+      },
+    }
+    const wrapper = mountWithStudioContext(StudioPublishDialog, editor, {
+      readinessDetail: baseReadinessDetail,
+      publishImpact: readyPublishImpact,
+      publishImpactRequested: true,
+      publishReview,
+    })
+    const details = wrapper.findAll('details')
+    expect(details.map((item) => item.get('summary').text())).toEqual([
+      'Delivery details',
+      'Add a note (optional)',
+    ])
+    expect(details.every((item) => item.attributes('open') === undefined)).toBe(true)
+    expect(details[0]!.text()).toContain('Sitemap: included')
+    expect(details.some((item) => item.text().includes('Shared footer changes'))).toBe(false)
+    expect(wrapper.text()).toContain('Shared footer changes affect both languages.')
+    const confirm = wrapper.findAll('button').at(-1)!
+    expect(confirm.text()).toBe('Publish English')
+    expect(confirm.attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it('summarizes website impact in the publish confirmation instead of raw fields', () => {
     const wrapper = mountWithStudioContext(StudioPublishDialog, fakeEditor('ready', true, true), {
       readinessDetail: baseReadinessDetail,
@@ -1789,7 +2035,7 @@ describe('Studio destructive dialogs', () => {
     })
 
     expect(wrapper.text()).toContain('Preview reviewed. Confirm to publish these website changes.')
-    expect(wrapper.text()).toContain('Current live page')
+    expect(wrapper.text()).toContain('Currently published address')
     expect(wrapper.text()).toContain('/old-page')
     expect(wrapper.text()).toContain('After publish')
     expect(wrapper.text()).toContain('/hello')
@@ -2140,6 +2386,7 @@ describe('Studio entry top bar restore action', () => {
         canPublishEntries: true,
         collectionConfig: { settings: {} },
         currentLocale: 'en',
+        locales: [{ code: 'en', label: 'English' }],
         dateLocale: 'en',
         entry: { status },
         fields: [],

@@ -4,7 +4,11 @@ import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import type { Doc, Id } from '../_generated/dataModel.js'
 import { requireRecord } from '../auth/checks.js'
 import { throwCmsError } from '../errors.js'
-import { getCollectionDefaultLocale, getCollectionOrThrow } from '../lib/collections.js'
+import {
+  assertCollectionSupportsLocale,
+  getCollectionDefaultLocale,
+  getCollectionOrThrow,
+} from '../lib/collections.js'
 import { asEntryId, toOptionalStringId, toStringId } from '../lib/ids.js'
 import { pathPrefixForLocale, rootSlugForLocale } from '../lib/paths.js'
 import type { HandlerMutationCtx, QueryOrMutationCtx } from '../lib/types.js'
@@ -23,6 +27,7 @@ export type EntryRevisionDoc = Doc<'entryRevisions'>
 type CollectionForEntry = Awaited<ReturnType<typeof getCollectionForEntry>>
 
 export type StudioLocaleDraftView = {
+  draftId: string | null
   locale: string
   draftExists: boolean
   draftSlug: string | null
@@ -179,6 +184,7 @@ export async function readStudioDraftView(
 
       return {
         locale,
+        draftId: localeRow ? String(localeRow._id) : null,
         draftExists: localeRow !== null,
         draftSlug: localeRow?.slug ?? null,
         draftPath,
@@ -249,6 +255,7 @@ export function deriveDirtyLocales(
 
 export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc, locale?: string) {
   const collection = await getCollectionForEntry(ctx, entry)
+  if (locale !== undefined) assertCollectionSupportsLocale(collection, locale)
   const draftView = await readStudioDraftView(ctx, entry, collection)
   const locales = draftView.locales
   const primaryLocale = locale ?? getDefaultLocale(collection)
@@ -259,6 +266,7 @@ export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc,
 
     return {
       locale: item.locale,
+      draftId: item.draftId,
       draftExists: item.draftExists,
       entryId: toStringId(entry._id),
       draftSlug: item.draftSlug ?? null,
@@ -315,6 +323,7 @@ export async function buildStudioEntry(ctx: QueryOrMutationCtx, entry: EntryDoc,
     publishedData: primary?.published ? primary.publishedData : draftView.publishedShared,
     localeData: primary
       ? {
+          draftId: primary.draftId,
           draftSlug: primary.draftSlug ?? null,
           draftPath: primary.draftPath,
           publishedSlug: primary.publishedSlug ?? null,

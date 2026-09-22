@@ -1,11 +1,13 @@
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { Ref } from 'vue'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import type { useRouter } from 'vue-router'
 
 import { api } from '../../boundary/api'
+import { getStudioAuthoringSource } from '../../boundary/host-bridge'
 import { useCmsStudioQuery } from '../useCmsStudioQuery'
 import { useConvexMutation } from '../useStudioConvex'
+import type { StudioRichtextFlush } from './studioRichtextFlush'
 import type { StudioCollectionConfig, StudioEntry, StudioField, StudioLocaleVariant } from './types'
 
 interface EntryLocalesDeps {
@@ -24,6 +26,7 @@ interface EntryLocalesDeps {
   saving: Ref<boolean>
   error: Ref<string>
   isDirty: Ref<boolean>
+  richtextFlush: StudioRichtextFlush
   form: { slug: string }
   handleSaveDraft: (silent?: boolean) => Promise<boolean>
   cancelAutoSave: () => void
@@ -40,6 +43,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     collection,
     contentRoute,
     router,
+    collectionConfig,
     locales,
     localeVariants,
     currentLocale,
@@ -49,6 +53,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     saving,
     error,
     isDirty,
+    richtextFlush,
     form,
     handleSaveDraft,
     cancelAutoSave,
@@ -77,6 +82,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
   }))
 
   const secondaryAssetContext = computed(() => ({
+    authoringSource: getStudioAuthoringSource(collection.value, collectionConfig.value),
     collection: collection.value,
     locale: secondaryLocale.value,
     entryId: entryId.value,
@@ -185,6 +191,16 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     if (!value) localeCreationTarget.value = ''
   }
 
+  async function flushRichtext() {
+    const result = await richtextFlush.flush()
+    if (!result.ok) {
+      error.value = result.error.message
+      return false
+    }
+    await nextTick()
+    return true
+  }
+
   async function confirmLocaleCreation(source: LocaleVariantSource) {
     const localeCode = localeCreationTarget.value
     if (!localeCode || !canEditEntries.value) return false
@@ -192,6 +208,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     saving.value = true
     error.value = ''
     try {
+      if (!(await flushRichtext())) return false
       if (isDirty.value) {
         cancelAutoSave()
         const saved = await handleSaveDraft(true)
@@ -222,36 +239,45 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
 
   async function handleSwitchLocale(localeCode: string) {
     const currentEntry = entry.value
-    if (!currentEntry || localeCode === currentEntry.locale) return
+    if (!currentEntry || localeCode === currentEntry.locale) return false
     saving.value = true
     error.value = ''
     try {
+      if (!(await flushRichtext())) return false
       if (isDirty.value) {
         cancelAutoSave()
         const saved = await handleSaveDraft(true)
-        if (!saved) return
+        if (!saved) return false
       }
       await router.push({
         path: `${contentRoute}/${collection.value}/${entryId.value}`,
         query: localeCode === defaultLocale.value ? {} : { locale: localeCode },
       })
+      return true
     } catch (e) {
       error.value = getCmsErrorMessage(e, t('ginkoCms.studio.collectionEditor.switchLocaleError'))
+      return false
     } finally {
       saving.value = false
     }
   }
 
   async function handleSelectSecondaryLocale(localeCode: string) {
+    if (localeCode === secondaryLocale.value) return true
+    if (!(await flushRichtext())) return false
     if (!localeCode || localeCode === currentLocale.value) {
       secondaryLocale.value = ''
-      return
+      return true
     }
     secondaryLocale.value = localeCode
+    return true
   }
 
-  function setTranslationMode(value: boolean) {
+  async function setTranslationMode(value: boolean) {
+    if (value === translationMode.value) return true
+    if (!value && !(await flushRichtext())) return false
     translationMode.value = value
+    return true
   }
 
   return {

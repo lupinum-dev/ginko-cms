@@ -1,3 +1,4 @@
+import { isEqualJsonValue } from '@lupinum/ginko-cms-contract/shared/utils.js'
 import type { GinkoCmsPublicConfig, GinkoCmsStudioHostBridge } from '@public/types'
 
 import { createDevelopmentHostBridge } from './development-host-bridge'
@@ -68,4 +69,39 @@ export function useCmsConfig(): GinkoCmsPublicConfig {
     ...config,
     route: '',
   }
+}
+
+/** Authoring implementations come from this host build; the installed policy remains authoritative. */
+export function getStudioAuthoringSource(
+  collection: string,
+  installed: { settings?: unknown; contract?: { version?: string } } | null,
+): unknown {
+  const config = readHostBridge().config
+  if (!installed || installed.contract?.version !== config.contract.expectedContentHash)
+    return undefined
+  const settings = config.collections?.[collection]?.settings
+  const policySettings = installed.settings
+  if (
+    !settings ||
+    typeof settings !== 'object' ||
+    Array.isArray(settings) ||
+    !policySettings ||
+    typeof policySettings !== 'object' ||
+    Array.isArray(policySettings)
+  )
+    return undefined
+  if (typeof settings.authoring !== 'string') return undefined
+  let source: unknown
+  try {
+    source = JSON.parse(settings.authoring)
+  } catch {
+    return undefined
+  }
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return undefined
+  return isEqualJsonValue(
+    'policy' in source ? source.policy : undefined,
+    'componentPolicy' in policySettings ? policySettings.componentPolicy : undefined,
+  )
+    ? source
+    : undefined
 }

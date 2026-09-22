@@ -9,6 +9,8 @@ import { throwCmsError } from '../../errors.js'
 import { logActivity } from '../../lib/activity.js'
 import {
   assertCollectionSupportsLocale,
+  assertCollectionBodySupported,
+  getCollectionBodyField,
   getCollectionOrThrow,
   isLocalizedSlugMode,
   isRouteBackedCollection,
@@ -100,17 +102,13 @@ export async function createCanonicalEntry(
   if (existing) throwCmsError('ENTRY_SLUG_CONFLICT', `Slug "${slug}" already exists.`)
 
   const shared = args.shared ?? {}
-  const richtextKeys = new Set(
-    collection.fields.filter((field) => field.type === 'richtext').map((field) => field.key),
-  )
-  let bodyMdc = args.bodyMdc ?? ''
-  for (const key of richtextKeys) {
-    const value = args.localized?.[key]
-    if (!bodyMdc && typeof value === 'string') bodyMdc = value
-  }
+  const bodyField = getCollectionBodyField(collection)
+  const localizedBody = bodyField ? args.localized?.[bodyField] : undefined
+  const bodyMdc = args.bodyMdc || (typeof localizedBody === 'string' ? localizedBody : '')
+  assertCollectionBodySupported(collection, bodyMdc)
   assertMdcBodyWithinLimit(bodyMdc, { locale, field: 'bodyMdc' })
   const localized = Object.fromEntries(
-    Object.entries(args.localized ?? {}).filter(([key]) => !richtextKeys.has(key)),
+    Object.entries(args.localized ?? {}).filter(([key]) => key !== bodyField),
   )
   assertFieldDataValid(
     collection.fields,
@@ -258,6 +256,7 @@ export async function buildDraftSnapshots(
     assertCollectionSupportsLocale(collection, locale)
     const row = rows.byLocale[locale]
     if (!row) throwCmsError('ENTRY_LOCALE_DRAFT_MISSING', `No draft exists for locale "${locale}".`)
+    assertCollectionBodySupported(collection, row.bodyMdc)
     assertMdcBodyWithinLimit(row.bodyMdc, { locale, field: 'bodyMdc' })
     const draftSlug = row.slug ?? entry.slug
     const slug = isRouteBackedCollection(collection) ? draftSlug : entry.stableId

@@ -30,7 +30,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: unknown]
 }>()
 
-const { t } = useCmsI18n()
+const { t, currentLocale } = useCmsI18n()
 const value = computed({
   get: () => props.modelValue,
   set: (v) => {
@@ -56,7 +56,7 @@ const collapsedItems = ref(new Set<number>())
 
 function blockTypeLabel(type: string): string {
   const nested = nestedFields.value.find((candidate) => candidate.key === type)
-  return nested ? fieldDisplayLabel(nested) : humanizeFieldKey(type)
+  return nested ? fieldDisplayLabel(nested, currentLocale.value) : humanizeFieldKey(type)
 }
 
 function toggleItemCollapse(index: number) {
@@ -131,7 +131,7 @@ function removeBlock(index: number) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="block in nestedFields" :key="block.key" :value="block.key">
-              {{ fieldDisplayLabel(block) }}
+              {{ fieldDisplayLabel(block, currentLocale) }}
             </SelectItem>
           </SelectContent>
         </Select>

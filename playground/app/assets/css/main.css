@@ -38,3 +38,172 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* The host owns article typography for both published content and private previews. */
+@layer components {
+  .prose {
+    --prose-ink: #263f32;
+    --prose-muted: #53614b;
+    --prose-line: #cdd2bf;
+    --prose-surface: #f6f5ec;
+    color: var(--prose-ink);
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+  }
+
+  .prose :where(h1, h2, h3, h4, h5, h6):not(:where(.not-prose, .not-prose *)) {
+    margin-block: 1.6em 0.6em;
+    color: var(--prose-ink);
+    font-family: var(--font-heading);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .prose :where(h1):not(:where(.not-prose, .not-prose *)) {
+    font-size: clamp(2.125rem, 5vw, 3.25rem);
+  }
+
+  .prose :where(h2):not(:where(.not-prose, .not-prose *)) {
+    font-size: clamp(1.75rem, 3.5vw, 2.25rem);
+  }
+
+  .prose :where(h3):not(:where(.not-prose, .not-prose *)) {
+    font-size: 1.5rem;
+  }
+
+  .prose :where(h4, h5, h6):not(:where(.not-prose, .not-prose *)) {
+    font-size: 1.1875rem;
+    font-weight: 600;
+  }
+
+  .prose :where(p, ul, ol, blockquote, pre, table, figure):not(:where(.not-prose, .not-prose *)) {
+    margin-block: 1.25em;
+  }
+
+  .prose :where(ul, ol):not(:where(.not-prose, .not-prose *)) {
+    padding-inline-start: 1.5em;
+  }
+
+  .prose :where(ul):not(:where(.not-prose, .not-prose *)) {
+    list-style-type: disc;
+  }
+
+  .prose :where(ol):not(:where(.not-prose, .not-prose *)) {
+    list-style-type: decimal;
+  }
+
+  .prose :where(li):not(:where(.not-prose, .not-prose *)) {
+    padding-inline-start: 0.25em;
+    margin-block: 0.4em;
+  }
+
+  .prose :where(li > p, li > ul, li > ol):not(:where(.not-prose, .not-prose *)) {
+    margin-block: 0.5em;
+  }
+
+  .prose :where(a):not(:where(.not-prose, .not-prose *)) {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.2em;
+  }
+
+  .prose :where(a:focus-visible):not(:where(.not-prose, .not-prose *)) {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+  }
+
+  .prose :where(strong):not(:where(.not-prose, .not-prose *)) {
+    font-weight: 650;
+  }
+
+  .prose :where(blockquote):not(:where(.not-prose, .not-prose *)) {
+    padding-inline-start: 1.25em;
+    border-inline-start: 3px solid var(--prose-line);
+    color: var(--prose-muted);
+    font-style: italic;
+  }
+
+  .prose :where(code):not(:where(.not-prose, .not-prose *)) {
+    padding: 0.15em 0.35em;
+    border-radius: 0.25rem;
+    background: var(--prose-surface);
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+
+  .prose :where(pre):not(:where(.not-prose, .not-prose *)) {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 1.25rem;
+    border-radius: 0.5rem;
+    background: var(--prose-surface);
+    font-size: 0.875rem;
+    line-height: 1.65;
+    overflow-wrap: normal;
+  }
+
+  .prose :where(pre code):not(:where(.not-prose, .not-prose *)) {
+    padding: 0;
+    background: transparent;
+    font-size: inherit;
+  }
+
+  .prose :where(table):not(:where(.not-prose, .not-prose *)) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+    text-align: start;
+  }
+
+  .prose :where(th, td):not(:where(.not-prose, .not-prose *)) {
+    padding: 0.65em 1em;
+    border-bottom: 1px solid var(--prose-line);
+    vertical-align: top;
+  }
+
+  .prose :where(th):not(:where(.not-prose, .not-prose *)) {
+    font-weight: 650;
+  }
+
+  .prose :where(img, video):not(:where(.not-prose, .not-prose *)) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-block: 1.75rem;
+    border-radius: 0.5rem;
+  }
+
+  .prose :where(figure img):not(:where(.not-prose, .not-prose *)) {
+    margin-block: 0;
+  }
+
+  .prose :where(figcaption):not(:where(.not-prose, .not-prose *)) {
+    margin-top: 0.75em;
+    color: var(--prose-muted);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .prose :where(hr):not(:where(.not-prose, .not-prose *)) {
+    margin-block: 2.5em;
+    border-color: var(--prose-line);
+  }
+
+  .prose > :first-child {
+    margin-top: 0;
+  }
+
+  .dark .prose {
+    --prose-ink: #e5eddf;
+    --prose-muted: #b7c5b0;
+    --prose-line: #53614b;
+    --prose-surface: #26352b;
+  }
+}

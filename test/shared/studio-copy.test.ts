@@ -114,7 +114,7 @@ describe('Studio copy guardrails', () => {
     expect(en.ginkoCms.common.locale).toBe('Language')
     expect(en.ginkoCms.studio.collectionListPage.localesColumn).toBe('Languages')
     expect(en.ginkoCms.studio.collectionEditor.publishDialogDescription).toBe(
-      'Review what will change on the website before this goes live.',
+      'These changes will become visible to website visitors.',
     )
     expect(en.ginkoCms.studio.collectionEditor.publishMessageLabel).toBe('Publish note')
     expect(en.ginkoCms.studio.settingsPage.storageRefresh).toBe('Refresh')

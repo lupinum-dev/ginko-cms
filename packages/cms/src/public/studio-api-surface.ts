@@ -160,6 +160,9 @@ export const studioApiSurface = {
       confirmation: true,
     },
     saveEntryDraft: 'mutation',
+    getTranslationReview: 'query',
+    setTranslationSource: 'mutation',
+    acknowledgeTranslationReview: 'mutation',
     unpublishEntry: {
       kind: 'mutation',
       component: 'unpublishEntryOperationExecute',

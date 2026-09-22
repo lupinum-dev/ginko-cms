@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { GripVertical, Pencil } from '@lucide/vue'
+import { Pencil } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import type { StudioEntry } from '../../../composables/internal/types'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { contentLanguageLabel } from '../../../lib/contentLanguageLabel'
 import { readinessStateTone } from '../../../lib/publicWorkflow'
 import StudioEntryHeroFields from './StudioEntryHeroFields.vue'
 
@@ -30,12 +31,10 @@ const ce = (key: string, params?: Record<string, unknown>): string =>
 const localeCode = computed(() =>
   props.side === 'primary' ? editor.loader.currentLocale : editor.locales.secondaryLocale,
 )
-const localeCodeLabel = computed(() => localeCode.value.toUpperCase())
+const localeCodeLabel = computed(() =>
+  contentLanguageLabel(localeCode.value, editor.loader.locales, editor.loader.dateLocale),
+)
 const isEditingTarget = computed(() => props.side === 'primary' && editor.loader.canEditEntries)
-const isSourceOfTruthLocale = computed(() => localeCode.value === editor.loader.defaultLocale)
-// Single-language sites get no translation vocabulary ("Source of truth",
-// locale chips) — design review S2, principle 6.
-const hasMultipleLocales = computed(() => (editor.loader.locales?.length ?? 1) > 1)
 const localeFlag = computed(() => {
   const locale = studioLocales.value.find(
     (item: { code: string; flag?: string }) => item.code === localeCode.value,
@@ -78,7 +77,13 @@ const entry = computed<EntryMetadata | null>(() => {
 
 const lastUpdatedAt = computed(() => entry.value?.updatedAt ?? entry.value?.publishedAt ?? null)
 
-const primaryLocaleLabel = computed(() => editor.loader.currentLocale.toUpperCase())
+const primaryLocaleLabel = computed(() =>
+  contentLanguageLabel(
+    editor.loader.currentLocale,
+    editor.loader.locales,
+    editor.loader.dateLocale,
+  ),
+)
 const localizedSlugInputId = computed(() => `localized-slug-${props.side}`)
 const localizedPathInputId = computed(() => `localized-computed-path-${props.side}`)
 const localizedUrlHelp = computed(() =>
@@ -108,16 +113,10 @@ function updateField(fieldKey: string, value: unknown) {
     :class="panelTone"
   >
     <div
+      v-if="editor.locales.translationMode"
       class="studio-locale-panel__header ginko:flex ginko:h-12 ginko:items-center ginko:justify-between ginko:gap-3 ginko:border-b ginko:border-border/30 ginko:bg-muted/20 ginko:px-5"
     >
       <div class="ginko:flex ginko:min-w-0 ginko:items-center ginko:gap-2">
-        <button
-          type="button"
-          :aria-label="ce('localePanelReorder')"
-          class="ginko:hidden ginko:cursor-grab ginko:items-center ginko:justify-center ginko:rounded ginko:text-muted-foreground/60 ginko:transition-colors ginko:hover:text-foreground ginko:focus-visible:outline-none ginko:focus-visible:ring-2 ginko:focus-visible:ring-ring/50 ginko:active:cursor-grabbing ginko:@2xl:inline-flex"
-        >
-          <GripVertical class="ginko:size-4" />
-        </button>
         <span class="ginko:inline-flex ginko:shrink-0 ginko:items-center ginko:gap-1.5">
           <Icon
             v-if="localeFlag"
@@ -125,31 +124,10 @@ function updateField(fieldKey: string, value: unknown) {
             class="ginko:size-4 ginko:shrink-0"
             aria-hidden="true"
           />
-          <span
-            class="studio-text-caption ginko:font-mono ginko:font-semibold ginko:uppercase ginko:text-foreground"
-          >
+          <span class="studio-text-caption ginko:font-semibold ginko:text-foreground">
             {{ localeCodeLabel }}
           </span>
         </span>
-        <!-- "Source of truth" belongs to the DEFAULT locale, not to whichever
-             pane renders first — in Single mode the primary pane can show a
-             translation (W1 walkthrough finding). -->
-        <Badge
-          v-if="hasMultipleLocales"
-          :variant="isSourceOfTruthLocale ? 'success' : 'soft'"
-          class="studio-locale-panel__role-badge ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
-        >
-          {{
-            isSourceOfTruthLocale ? ce('localePanelSourceOfTruth') : ce('localePanelTranslation')
-          }}
-        </Badge>
-        <Badge
-          v-if="hasMultipleLocales"
-          :variant="isEditingTarget ? 'default' : 'outline'"
-          class="ginko:shrink-0 ginko:rounded-md ginko:text-xs ginko:font-semibold"
-        >
-          {{ isEditingTarget ? ce('localePanelEditing') : ce('localePanelReadOnly') }}
-        </Badge>
         <StudioStatusPill
           v-if="showStatusPill"
           :label="status"
@@ -310,5 +288,3 @@ function updateField(fieldKey: string, value: unknown) {
   }
 }
 </style>
-<!-- (locale label hidden visually; flag chip + Source/Translation badge cover identification) -->
-<!-- Drag handle is visual-only for now; reorder isn't wired up. -->

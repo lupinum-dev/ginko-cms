@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Collaborative website editing candidate
+
+- Studio and website controls now use one automatic-save session. Independent
+  fields and languages merge safely; overlapping edits preserve both values.
+  Pending editor work is flushed before navigation, preview and publication.
+- Studio focuses on writing, language and the next action. Translation review,
+  history and delivery details open when needed. Source review uses immutable
+  checkpoints and rejects stale source or target acknowledgments.
+- Structured landing pages can use `type: 'page', body: false`. Articles keep
+  checked MDC and the standalone Editor. Existing contracts require a reviewed,
+  content-preserving transition before changing their body model.
+- Public readers receive approved snapshots only. Private routes override
+  inherited caching and prerender rules. Checked image AST metadata survives
+  Convex transport and resolves through the same public asset projection.
+- Added the optional Vercel cache adapter to the existing signed delivery flow.
+  Local behavior is tested; hosted CDN verification remains an approval gate.
+- This local candidate supersedes the Content beta.8 tuple below with the exact
+  Content beta.9 and Editor 0.1.0 archives recorded in `compatibility.json`.
+  Registry publication and certification remain pending. Adoption and rollback
+  requirements are recorded in `internals/migrations.md`.
+- Updated compatible Vitest, SVGO and devalue dependencies to patched versions.
+
 ### Experimental RC.3 release boundary
 
 - Publish the three Ginko packages under `next-staging` only. Do not move
@@ -15,6 +37,10 @@
   identity-preserving migration; resetting auth would orphan CMS memberships.
 
 ### Added
+
+- Rich-text image uploads and library browsing share the Editor's controlled
+  picker. Preview renders native Markdown and collection reader components in
+  the host Vue context, with locale updates, error recovery and cleanup.
 
 - Studio: archived entries can be restored — the archived notice gains a
   "Restore draft" action and the entry-actions menu offers Restore instead of

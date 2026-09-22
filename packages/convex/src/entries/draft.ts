@@ -4,8 +4,7 @@ import {
   saveEntryDraft as saveEntryDraftArgs,
 } from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
 import { draftSaveResultValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
-import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel.js'
 import { getOwnActiveAgentRunOrThrow } from '../agentRuns.js'
@@ -18,6 +17,7 @@ import { asEntryId } from '../lib/ids.js'
 import { assertCmsContractWritable } from '../lib/installedContract.js'
 import type { MutationCtx } from '../lib/types.js'
 import { assertValidLocaleCode } from '../lib/validation.js'
+import { hashValue } from '../operationHash.js'
 import {
   defineCmsOperation,
   operationEffect,
@@ -30,12 +30,36 @@ import { deriveDirtyLocales, loadEntryMutationContext } from './context.js'
 import { assertNoDraftSiblingPathConflict } from './draftPathConflicts.js'
 import { getDraftVsPublishedDiffPreview } from './history.js'
 import { createExactRelationReferenceResolver, rewriteStoredRelationData } from './relations.js'
+import { recordUnreviewedTranslationSource } from './translationReview.js'
 import { deleteAssetRefsForSource } from './workflow/assetRefs.js'
 import { refreshDraftAssetRefsForSave } from './workflow/commands.js'
+import { mergeDraftPatch } from './workflow/draftMerge.js'
 import { assertValidDraftParentChain } from './workflow/draftPlacement.js'
 import { applyDraftPatch, type SaveDraftPatch } from './workflow/drafts.js'
 import { deleteDraftSearchEntry } from './workflow/draftSearch.js'
 import { stableHash } from './workflow/hashing.js'
+
+function normalizeDraftPatch(
+  ctx: MutationCtx,
+  patch: Infer<typeof saveEntryDraftArgs.args.patch>,
+): SaveDraftPatch {
+  const { parentEntryId, ...sharedFields } = patch.shared ?? {}
+  return {
+    ...(patch.shared
+      ? {
+          shared: {
+            ...sharedFields,
+            ...(parentEntryId !== undefined
+              ? {
+                  parentEntryId: parentEntryId ? asEntryId(ctx, parentEntryId) : null,
+                }
+              : {}),
+          },
+        }
+      : {}),
+    ...(patch.locales ? { locales: patch.locales } : {}),
+  }
+}
 
 async function currentDirtyLocales(
   ctx: MutationCtx,
@@ -298,6 +322,15 @@ export const createLocaleVariant = callerMutation.protected({
       updatedBy: appIdentityId,
       updatedAt: now,
     })
+    if (sourceDraft) {
+      await recordUnreviewedTranslationSource(ctx, {
+        entry,
+        target: { _id: draftId, locale: args.locale, version: 1 },
+        sourceLocale: sourceDraft.locale,
+        appIdentityId,
+        now,
+      })
+    }
     if (slug) {
       await assertNoDraftSiblingPathConflict(ctx, {
         entry,
@@ -347,44 +380,73 @@ const saveEntryDraftDefinition = defineCmsOperation({
       ctx,
       args.entryId,
       {
-        expectedVersion: args.expectedDraftVersion,
+        expectedVersion: args.concurrency ? undefined : args.expectedDraftVersion,
       },
     )
 
-    const sharedPatch = args.patch.shared
-      ? {
-          ...(args.patch.shared.parentEntryId !== undefined
-            ? {
-                parentEntryId: args.patch.shared.parentEntryId
-                  ? asEntryId(ctx, args.patch.shared.parentEntryId)
-                  : null,
-              }
-            : {}),
-          ...(args.patch.shared.orderRank !== undefined
-            ? { orderRank: args.patch.shared.orderRank }
-            : {}),
-          ...(args.patch.shared.slug !== undefined ? { slug: args.patch.shared.slug } : {}),
-          ...(args.patch.shared.shared !== undefined
-            ? { shared: args.patch.shared.shared as JsonMap }
-            : {}),
-          ...(args.patch.shared.nodeKind !== undefined
-            ? { nodeKind: args.patch.shared.nodeKind }
-            : {}),
+    for (const locale of Object.keys(args.patch.locales ?? {})) {
+      assertValidLocaleCode(locale, 'ENTRY_LOCALE_INVALID')
+      assertCollectionSupportsLocale(collection, locale)
+    }
+    const concurrency = args.concurrency
+    let requestHash: string | undefined
+    if (concurrency) {
+      if (!/^[\w-]{1,128}$/.test(concurrency.requestId)) {
+        throwCmsError(
+          'ENTRY_DRAFT_REQUEST_INVALID',
+          'Use a unique save request identifier of at most 128 characters.',
+        )
+      }
+      requestHash = await hashValue({
+        expectedDraftVersion: args.expectedDraftVersion,
+        base: concurrency.base,
+        localeDraftIds: concurrency.localeDraftIds,
+        patch: args.patch,
+      })
+      const receipt = await ctx.db
+        .query('draftSaveReceipts')
+        .withIndex('by_entry_identity_request', (q) =>
+          q
+            .eq('entryId', entry._id)
+            .eq('appIdentityId', appIdentityId)
+            .eq('requestId', concurrency.requestId),
+        )
+        .unique()
+      if (receipt) {
+        if (receipt.requestHash !== requestHash) {
+          throwCmsError(
+            'ENTRY_DRAFT_REQUEST_REUSED',
+            'This save identifier was already used for different changes.',
+          )
         }
-      : undefined
+        return { draftVersion: receipt.draftVersion, dirtyLocales: receipt.dirtyLocales }
+      }
+    }
 
+    const proposed = normalizeDraftPatch(ctx, args.patch)
+    const base = concurrency ? normalizeDraftPatch(ctx, concurrency.base) : undefined
+    const patch =
+      base && concurrency
+        ? await mergeDraftPatch(ctx, entry, base, proposed, concurrency.localeDraftIds)
+        : proposed
     const result = await saveCanonicalDraft(ctx, {
       collection,
       entryId: entry._id,
-      expectedDraftVersion: args.expectedDraftVersion,
+      expectedDraftVersion: concurrency ? entry.draftVersion : args.expectedDraftVersion,
       appIdentityId,
       now,
-      patch: {
-        ...(sharedPatch ? { shared: sharedPatch } : {}),
-        ...(args.patch.locales ? { locales: args.patch.locales as SaveDraftPatch['locales'] } : {}),
-      },
+      patch,
     })
-
+    if (concurrency && requestHash) {
+      await ctx.db.insert('draftSaveReceipts', {
+        entryId: entry._id,
+        appIdentityId,
+        requestId: concurrency.requestId,
+        requestHash,
+        ...result,
+        createdAt: now,
+      })
+    }
     return result
   },
 })
@@ -405,8 +467,20 @@ export const mcpSaveEntryDraft = callerMutation.protected({
     const appIdentity = await ctx.appIdentity()
     const now = Date.now()
     const agentRun = await getOwnActiveAgentRunOrThrow(ctx, agentRunId, appIdentity, now)
+    const requestId = input.concurrency?.requestId
+    const previousReceipt = requestId
+      ? await ctx.db
+          .query('draftSaveReceipts')
+          .withIndex('by_entry_identity_request', (q) =>
+            q
+              .eq('entryId', asEntryId(ctx, input.entryId))
+              .eq('appIdentityId', appIdentity.userId)
+              .eq('requestId', requestId),
+          )
+          .unique()
+      : null
     const result = await saveEntryDraftDefinition.handler(ctx, input)
-    if (result.draftVersion !== input.expectedDraftVersion) {
+    if (!previousReceipt && result.draftVersion !== input.expectedDraftVersion) {
       await ctx.db.patch(agentRun._id, {
         updatedAt: now,
         lastWriteAt: now,

@@ -1,4 +1,25 @@
-import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
+import { defineCollection, defineContentConfig, fields } from '@lupinum/ginko-content/config'
+import { z } from 'zod'
+
+const landing = defineCollection({
+  type: 'page',
+  body: false,
+  source: 'content/landing/**/*.json',
+  route: '/landing',
+  i18n: true,
+  schema: z.object({
+    eyebrow: fields.text().localized(),
+    cta_label: fields.text().localized(),
+    cta_href: fields.text().localized(),
+    hero_image: fields.image().localized(),
+    hero_alt: fields.text().localized(),
+  }),
+  cms: {
+    fields: {
+      description: { type: 'textarea' },
+    },
+  },
+})
 
 const blog = defineCollection({
   type: 'page',
@@ -44,5 +65,5 @@ const authors = defineCollection({
 
 export default defineContentConfig({
   provider: 'cms',
-  collections: { blog, docs, authors },
+  collections: { blog, docs, authors, landing },
 })

@@ -94,4 +94,35 @@ describe('Ginko fixed MCP OAuth provider profile', () => {
       clientPrivileges({ session: { userId: 'owner-1' }, user: { id: 'owner-1' } }),
     ).resolves.toBe(false)
   })
+
+  it('delegates email verification to the host and carries the verified claim in fresh sessions', () => {
+    const sendVerificationEmail = vi.fn()
+    defineGinkoAuth(
+      {
+        components: {
+          betterAuth: {} as never,
+          ginkoCms: {
+            mcpOAuthDelegations: { hasOAuthAdminPrivilege: Symbol('query') as never },
+          },
+        },
+      },
+      { emailVerification: { sendVerificationEmail } },
+    )
+    expect(capturedFactoryOptions).toMatchObject({
+      emailVerification: {
+        autoSignInAfterVerification: false,
+        sendOnSignUp: true,
+        sendVerificationEmail,
+      },
+    })
+    const claims = capturedFactoryOptions?.defineSessionClaims as (input: {
+      user: { email: string; emailVerified: boolean; name: string }
+    }) => unknown
+    expect(
+      claims({ user: { email: 'member@example.test', emailVerified: true, name: 'Member' } }),
+    ).toEqual({ email: 'member@example.test', emailVerified: true, name: 'Member' })
+    expect(
+      claims({ user: { email: 'member@example.test', emailVerified: false, name: 'Member' } }),
+    ).toEqual({ email: 'member@example.test', emailVerified: false, name: 'Member' })
+  })
 })

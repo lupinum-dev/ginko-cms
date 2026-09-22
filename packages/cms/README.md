@@ -82,6 +82,7 @@ framework-neutral contract types live in `@lupinum/ginko-cms-contract`.
 
 - `@lupinum/ginko-cms`
 - `@lupinum/ginko-cms/convex/auth`
+- `@lupinum/ginko-cms/editing` — shared draft session for Studio and authenticated website controls.
 - `@lupinum/ginko-cms/nuxt-provider`
 - `@lupinum/ginko-cms/portability`
 - `@lupinum/ginko-cms/public`

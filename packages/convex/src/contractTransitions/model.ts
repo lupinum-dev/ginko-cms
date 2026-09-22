@@ -4,19 +4,18 @@ import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/t
 import {
   assertResolvedContentContract,
   hashCanonicalJson,
-  parseMdcBody,
-  type ResolvedContentCollectionV1,
-  type ResolvedContentContractV1,
+  type ResolvedContentCollection,
+  type ResolvedContentContract,
 } from '@lupinum/ginko-content/cms-contract'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from '../_generated/dataModel.js'
 import { assertCmsPresentation } from '../contract.js'
 import { readDraftRows } from '../entries/workflow/drafts.js'
-import { assertMdcBodyWithinLimit } from '../lib/contentLimits.js'
 import { projectContentField, readInstalledCmsContract } from '../lib/installedContract.js'
 import type { QueryOrMutationCtx } from '../lib/types.js'
 import { assertFieldDataValid, assertValidSlug } from '../lib/validation.js'
+import { validateTransitionBodyPreservation } from './bodyPreservation.js'
 
 const TRANSITION_PAGE_SIZE_DEFAULT = 10
 const TRANSITION_PAGE_SIZE_MAX = 10
@@ -84,7 +83,7 @@ export type TransitionRun = Doc<'contractTransitionRuns'>
 type TransitionHashValue =
   | JsonValue
   | JsonObject
-  | ResolvedContentCollectionV1
+  | ResolvedContentCollection
   | TransitionInput
   | TransitionOutput
 
@@ -129,15 +128,15 @@ export function asTransitionEntryId(ctx: QueryOrMutationCtx, value: string): Id<
 }
 
 async function canonicalEqual(
-  left: JsonObject | ResolvedContentCollectionV1,
-  right: JsonObject | ResolvedContentCollectionV1,
+  left: JsonObject | ResolvedContentCollection,
+  right: JsonObject | ResolvedContentCollection,
 ): Promise<boolean> {
   return (await hashTransitionValue(left)) === (await hashTransitionValue(right))
 }
 
 export async function changedCollectionSlugs(
-  current: ResolvedContentContractV1,
-  target: ResolvedContentContractV1,
+  current: ResolvedContentContract,
+  target: ResolvedContentContract,
 ): Promise<string[]> {
   const currentGlobal: JsonObject = {
     format: current.format,
@@ -193,7 +192,7 @@ export async function requireLockedContractForRun(ctx: QueryOrMutationCtx, run: 
   return installed
 }
 
-export async function targetContractForRun(run: TransitionRun): Promise<ResolvedContentContractV1> {
+export async function targetContractForRun(run: TransitionRun): Promise<ResolvedContentContract> {
   const target = assertResolvedContentContract(run.targetContent)
   if ((await hashCanonicalJson(run.targetContent)) !== run.toContentHash) {
     throw new Error('CONTRACT_TRANSITION_TARGET_HASH_MISMATCH')
@@ -215,7 +214,7 @@ export async function transitionCollections(ctx: QueryOrMutationCtx, run: Transi
 export async function transitionRouteClaims(
   entry: Doc<'entries'>,
   output: TransitionOutput,
-  target: ResolvedContentContractV1,
+  target: ResolvedContentContract,
 ): Promise<TransitionRouteClaim[]> {
   const collection = target.collections[entry.collection]
   if (!collection || collection.routing.mode !== 'route') return []
@@ -325,7 +324,7 @@ export function transitionOutputFromStored(value: JsonObject): TransitionOutput 
   return { slug, parentEntryId, orderRank, nodeKind, shared, locales }
 }
 
-function knownFieldKeys(collection: ResolvedContentCollectionV1) {
+function knownFieldKeys(collection: ResolvedContentCollection) {
   return {
     shared: new Set(
       collection.fields.filter((field) => !field.localized).map((field) => field.key),
@@ -340,7 +339,7 @@ export async function validateTransitionOutput(
   ctx: QueryOrMutationCtx,
   entry: Doc<'entries'>,
   output: TransitionOutput,
-  target: ResolvedContentContractV1,
+  target: ResolvedContentContract,
 ): Promise<void> {
   const collection = target.collections[entry.collection]
   if (!collection) {
@@ -377,7 +376,6 @@ export async function validateTransitionOutput(
     assertFieldDataValid(fields, materializeFieldData(fields, output.shared, value.values), {
       publish: false,
     })
-    assertMdcBodyWithinLimit(value.bodyMdc, { locale, field: 'bodyMdc' })
-    await parseMdcBody(value.bodyMdc)
   }
+  await validateTransitionBodyPreservation(ctx, entry, output, collection)
 }

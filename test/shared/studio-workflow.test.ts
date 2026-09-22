@@ -236,8 +236,8 @@ describe('Studio public workflow helpers', () => {
     expect(readinessStateLabel(testT, 'needs_work')).toBe('Needs work')
     expect(readinessStateLabel(testT, 'ready')).toBe('Ready to publish')
     expect(readinessStateLabel(testT, 'in_review')).toBe('In review')
-    expect(readinessStateLabel(testT, 'live')).toBe('Live')
-    expect(readinessStateLabel(testT, 'live_with_changes')).toBe('Live with unpublished changes')
+    expect(readinessStateLabel(testT, 'live')).toBe('Published')
+    expect(readinessStateLabel(testT, 'live_with_changes')).toBe('Unpublished changes')
     expect(readinessStateLabel(testT, 'missing')).toBe('Missing language')
     expect(
       readinessIssueMessage(testT, {

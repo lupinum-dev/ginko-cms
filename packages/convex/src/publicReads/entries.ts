@@ -398,7 +398,7 @@ export async function mapPublicEntryAtKnownPath(
     },
     publishedAt: row.lastPublishedAt,
     stableId: row.stableId,
-    assetFacts: row.assetFacts,
+    assetFacts: row.assetFacts.filter((fact) => fact.fieldPath.startsWith('data.')),
   }
 }
 
@@ -413,7 +413,7 @@ export async function mapPublicPageEntryAtKnownPath(
     mapPublicEntryAtKnownPath(ctx, row, path, routingLocales),
     readPublicBodyFromRevision(ctx, row, collection),
   ])
-  return { ...entry, bodyAst: body.bodyAst, toc: body.toc }
+  return { ...entry, bodyAst: body.bodyAst, toc: body.toc, assetFacts: row.assetFacts }
 }
 
 export function mapPublicEntrySummaryAtKnownPath(

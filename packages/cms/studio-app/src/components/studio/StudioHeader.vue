@@ -21,10 +21,15 @@ const cmsConfig = useCmsConfig()
 // so the button is hidden on routes without a details surface.
 const {
   available: rightSidebarAvailable,
-  open: rightSidebarOpen,
+  open: rightSidebarDesktopOpen,
+  openMobile: rightSidebarMobileOpen,
+  isMobile: rightSidebarIsMobile,
   toggle: toggleRightSidebar,
   panel: rightSidebarPanel,
 } = useRightSidebar()
+const rightSidebarOpen = computed(() =>
+  rightSidebarIsMobile.value ? rightSidebarMobileOpen.value : rightSidebarDesktopOpen.value,
+)
 const studioRoute = cmsConfig.route.replace(/\/$/, '')
 
 // Collection labels come from the installed contract used by every Studio read.

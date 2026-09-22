@@ -20,6 +20,35 @@ export function isRouteBackedCollection(collection: CmsCollection): boolean {
   return getCollectionMode(collection) === 'route'
 }
 
+/** The installed Content contract owns whether this collection has an article body. */
+export function getCollectionBodyField(
+  collection: Pick<CmsCollection, 'settings' | 'fields'>,
+): string | null {
+  const settings = collection.settings
+  if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
+    const portable = settings.portable
+    if (portable && typeof portable === 'object' && !Array.isArray(portable)) {
+      if (portable.bodyField === null) return null
+      if (typeof portable.bodyField === 'string') return portable.bodyField
+    }
+  }
+  // Legacy in-memory collection fixtures predate the installed portable contract.
+  return collection.fields.find((field) => field.type === 'richtext')?.key ?? null
+}
+
+export function assertCollectionBodySupported(
+  collection: Pick<CmsCollection, 'slug' | 'settings' | 'fields'>,
+  bodyMdc: string,
+): void {
+  if (getCollectionBodyField(collection) === null && bodyMdc !== '') {
+    throwCmsError(
+      'ENTRY_BODY_NOT_SUPPORTED',
+      'This page uses structured fields and has no article body.',
+      { collection: collection.slug },
+    )
+  }
+}
+
 export function getCollectionDefaultLocale(
   collection: Pick<CmsCollection, 'locales' | 'settings'>,
   fallback = 'en',

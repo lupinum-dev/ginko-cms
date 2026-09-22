@@ -91,12 +91,14 @@ export function assertConvexDocumentWithinLimit(
     entryId?: string
     locale?: string
     maxBytes?: number
+    recovery?: string
   },
 ): number {
   const actualBytes = convexDocumentSize(value)
   const maxBytes = details.maxBytes ?? MAX_CONVEX_DOCUMENT_BYTES
   if (actualBytes <= maxBytes) return actualBytes
-  throwCmsError(details.code, `${details.label} exceeds its supported document-size limit.`, {
+  const message = `${details.label} exceeds its supported document-size limit.${details.recovery ? ` ${details.recovery}` : ''}`
+  throwCmsError(details.code, message, {
     ...(details.entryId ? { entryId: details.entryId } : {}),
     ...(details.locale ? { locale: details.locale } : {}),
     actualBytes,

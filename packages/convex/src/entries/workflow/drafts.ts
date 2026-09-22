@@ -2,8 +2,9 @@
  * Canonical draft writer.
  *
  * Shared values and placement live on `entries`; locale-specific values live
- * on `entryLocaleDrafts`. `entries.draftVersion` is the single optimistic
- * concurrency token for an editor save. Published state is never touched by
+ * on `entryLocaleDrafts`. `entries.draftVersion` fences aggregate
+ * writes and publication; the editing session can first merge a field-scoped
+ * compare-and-set patch against the current transaction snapshot. Published state is never touched by
  * this module.
  */
 
@@ -11,6 +12,7 @@ import type { JsonObject } from '@lupinum/ginko-cms-contract/shared/types.js'
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
 import { throwCmsError } from '../../errors.js'
+import { assertCollectionBodySupported, getCollectionOrThrow } from '../../lib/collections.js'
 import { assertMdcBodyWithinLimit } from '../../lib/contentLimits.js'
 import { isEqualJsonValue } from '../../lib/data.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../../lib/types.js'
@@ -87,6 +89,14 @@ export async function applyDraftPatch(
       expectedDraftVersion: input.expectedDraftVersion,
       actualDraftVersion: entry.draftVersion,
     })
+  }
+
+  if (Object.values(input.patch.locales ?? {}).some((patch) => patch.bodyMdc !== undefined)) {
+    const collection = await getCollectionOrThrow(ctx, entry.collection)
+    for (const patch of Object.values(input.patch.locales ?? {})) {
+      if (patch.bodyMdc !== undefined)
+        assertCollectionBodySupported(collection, patch.bodyMdc ?? '')
+    }
   }
 
   const sharedUpdated = Boolean(input.patch.shared && sharedDraftChanged(entry, input.patch.shared))

@@ -11,7 +11,7 @@ import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validato
 import type { JsonMap } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   assertResolvedContentContract,
-  type ResolvedContentContractV1,
+  type ResolvedContentContract,
 } from '@lupinum/ginko-content/cms-contract'
 import {
   collectPortableAssetReferences,
@@ -427,7 +427,7 @@ export const captureExportPage = callerMutation.protected({
 async function holdDocumentAssets(
   ctx: MutationCtx,
   run: ExportRun,
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   document: PortableDocumentV1,
   currentCount: number,
 ) {

@@ -347,7 +347,6 @@ export function useEntryPublishing(deps: EntryPublishingDeps) {
         versionId: typeof result.versionId === 'string' ? result.versionId : null,
       }
       publishSession.open = false
-      isDirty.value = false
       publishSession.message = ''
       resetPublishReadiness()
       studioDebug.debug('publish:success', { collection: collection.value, entryId: entryId.value })

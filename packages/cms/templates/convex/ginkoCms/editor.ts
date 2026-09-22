@@ -1,4 +1,7 @@
 import {
+  getTranslationReview as getTranslationReviewArgs,
+  setTranslationSource as setTranslationSourceArgs,
+  acknowledgeTranslationReview as acknowledgeTranslationReviewArgs,
   archiveEntry as archiveEntryArgs,
   createCheckpoint as createCheckpointArgs,
   createEntry as createEntryArgs,
@@ -362,6 +365,30 @@ export const previewRetireRedirectOperation = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       components.ginkoCms.editor.previewRetireRedirectOperation,
+      bindExpectedCmsContract(args),
+    ),
+})
+
+export const getTranslationReview = query({
+  args: getTranslationReviewArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(components.ginkoCms.editor.getTranslationReview, args),
+})
+
+export const setTranslationSource = mutation({
+  args: setTranslationSourceArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.editor.setTranslationSource,
+      bindExpectedCmsContract(args),
+    ),
+})
+
+export const acknowledgeTranslationReview = mutation({
+  args: acknowledgeTranslationReviewArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.editor.acknowledgeTranslationReview,
       bindExpectedCmsContract(args),
     ),
 })

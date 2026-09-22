@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { ArrowLeftRight, Brackets, FileText, Settings } from '@lucide/vue'
+import { ArrowLeftRight, Brackets, Languages, Settings } from '@lucide/vue'
 import { computed } from 'vue'
 
 import { useStudioEntryEditorContext } from '../../../composables/internal/studioEntryEditorContext'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
+import { useRightSidebar } from '../../../composables/useRightSidebar'
 import { useStudioAdvancedEditor } from '../../../composables/useStudioAdvancedEditor'
+import { contentLanguageLabel } from '../../../lib/contentLanguageLabel'
 
 const editor = useStudioEntryEditorContext()
 const advancedEditor = useStudioAdvancedEditor()
+const details = useRightSidebar()
+function openLanguageReview() {
+  if (details.isMobile.value) details.setOpenMobile(true)
+  else details.setOpen(true)
+}
 const { studioLocales } = useCmsI18n()
 
 const canCompare = computed(() => editor.loader.locales.length > 1)
@@ -19,11 +26,19 @@ const secondaryLocale = computed(
     )?.code ||
     '',
 )
-const currentLocaleLabel = computed(() => editor.loader.currentLocale.toUpperCase())
-const secondaryLocaleLabel = computed(() => secondaryLocale.value.toUpperCase())
+const currentLocaleLabel = computed(() =>
+  contentLanguageLabel(
+    editor.loader.currentLocale,
+    editor.loader.locales,
+    editor.loader.dateLocale,
+  ),
+)
+const secondaryLocaleLabel = computed(() =>
+  contentLanguageLabel(secondaryLocale.value, editor.loader.locales, editor.loader.dateLocale),
+)
 
-function hasDistinctLocaleLabel(locale: { code: string; label?: string }) {
-  return locale.label && locale.label.toLowerCase() !== locale.code.toLowerCase()
+function languageLabel(code: string) {
+  return contentLanguageLabel(code, editor.loader.locales, editor.loader.dateLocale)
 }
 
 function localeFlag(code: string) {
@@ -41,19 +56,19 @@ function hasLocaleDraft(code: string) {
   )
 }
 
-function toggleMode(compare: boolean) {
-  editor.locales.setTranslationMode(compare)
+async function toggleMode(compare: boolean) {
+  if (!(await editor.locales.setTranslationMode(compare))) return
   if (compare && !editor.locales.secondaryLocale && secondaryLocale.value) {
-    editor.locales.handleSelectSecondaryLocale(secondaryLocale.value)
+    await editor.locales.handleSelectSecondaryLocale(secondaryLocale.value)
   }
 }
 
-function swapLocales() {
+async function swapLocales() {
   const right = editor.locales.secondaryLocale
   if (!right || right === editor.loader.currentLocale) return
   const left = editor.loader.currentLocale
-  editor.locales.handleSwitchLocale(right)
-  editor.locales.handleSelectSecondaryLocale(left)
+  if (!(await editor.locales.handleSwitchLocale(right))) return
+  await editor.locales.handleSelectSecondaryLocale(left)
 }
 </script>
 
@@ -65,54 +80,19 @@ function swapLocales() {
     <div
       class="studio-page-content studio-entry-compare-toolbar__inner ginko:flex ginko:items-center ginko:gap-3 ginko:px-5"
     >
-      <div
-        class="ginko:inline-flex ginko:min-w-0 ginko:rounded-lg ginko:border ginko:border-border/60 ginko:bg-muted/50 ginko:p-0.5"
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Single language view"
-          class="studio-entry-compare-toolbar__mode-button ginko:h-6 ginko:gap-1.5 ginko:px-2.5"
-          :class="
-            !editor.locales.translationMode
-              ? 'ginko:bg-background ginko:text-foreground ginko:shadow-sm'
-              : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-          "
-          @click="toggleMode(false)"
-        >
-          <FileText class="ginko:size-3.5" />
-          <span class="studio-entry-compare-toolbar__mode-label">Single</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.compareLanguages')"
-          class="studio-entry-compare-toolbar__mode-button ginko:h-6 ginko:gap-1.5 ginko:px-2.5"
-          :class="
-            editor.locales.translationMode
-              ? 'ginko:bg-background ginko:text-foreground ginko:shadow-sm'
-              : 'ginko:text-muted-foreground ginko:hover:text-foreground'
-          "
-          @click="toggleMode(true)"
-        >
-          <Brackets class="ginko:size-3.5" />
-          <span class="studio-entry-compare-toolbar__mode-label">
-            {{ editor.loader.t('ginkoCms.studio.collectionEditor.compareLanguages') }}
-          </span>
-        </Button>
-      </div>
-
-      <Separator orientation="vertical" class="ginko:h-4" />
-
       <template v-if="!editor.locales.translationMode">
         <Select
           :model-value="editor.loader.currentLocale"
-          :disabled="editor.draft.saving || !editor.loader.canEditEntries"
+          :disabled="editor.draft.saving"
           @update:model-value="editor.locales.handleSwitchLocale($event)"
         >
           <SelectTrigger
             class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
-            :aria-label="`Select language. Current ${currentLocaleLabel}`"
+            :aria-label="
+              editor.loader.t('ginkoCms.studio.collectionEditor.selectLanguage', {
+                language: currentLocaleLabel,
+              })
+            "
           >
             <Icon
               v-if="localeFlag(editor.loader.currentLocale)"
@@ -120,9 +100,7 @@ function swapLocales() {
               class="ginko:size-4 ginko:shrink-0"
               aria-hidden="true"
             />
-            <span class="studio-text-caption ginko:font-mono ginko:font-semibold ginko:uppercase">{{
-              currentLocaleLabel
-            }}</span>
+            <span class="studio-text-caption ginko:font-semibold">{{ currentLocaleLabel }}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem
@@ -136,11 +114,14 @@ function swapLocales() {
                 class="ginko:mr-1 ginko:size-4 ginko:shrink-0"
                 aria-hidden="true"
               />
-              <span class="studio-text-caption ginko:font-mono ginko:uppercase ginko:text-success">
-                {{ locale.code.toUpperCase() }}
+              <span class="studio-text-caption ginko:text-success">
+                {{ languageLabel(locale.code) }}
               </span>
-              <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
-              <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+
+              <span
+                v-if="!editor.loader.pending && !hasLocaleDraft(locale.code)"
+                class="ginko:text-muted-foreground"
+              >
                 {{
                   editor.loader.t(
                     'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
@@ -156,12 +137,16 @@ function swapLocales() {
         <div class="studio-entry-compare-toolbar__locales">
           <Select
             :model-value="editor.loader.currentLocale"
-            :disabled="editor.draft.saving || !editor.loader.canEditEntries"
+            :disabled="editor.draft.saving"
             @update:model-value="editor.locales.handleSwitchLocale($event)"
           >
             <SelectTrigger
               class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
-              :aria-label="`Select source language. Current ${currentLocaleLabel}`"
+              :aria-label="
+                editor.loader.t('ginkoCms.studio.collectionEditor.selectLanguage', {
+                  language: currentLocaleLabel,
+                })
+              "
             >
               <Icon
                 v-if="localeFlag(editor.loader.currentLocale)"
@@ -169,10 +154,7 @@ function swapLocales() {
                 class="ginko:size-4 ginko:shrink-0"
                 aria-hidden="true"
               />
-              <span
-                class="studio-text-caption ginko:font-mono ginko:font-semibold ginko:uppercase"
-                >{{ currentLocaleLabel }}</span
-              >
+              <span class="studio-text-caption ginko:font-semibold">{{ currentLocaleLabel }}</span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem
@@ -188,13 +170,14 @@ function swapLocales() {
                   class="ginko:mr-1 ginko:size-4 ginko:shrink-0"
                   aria-hidden="true"
                 />
-                <span
-                  class="studio-text-caption ginko:font-mono ginko:uppercase ginko:text-success"
-                >
-                  {{ locale.code.toUpperCase() }}
+                <span class="studio-text-caption ginko:text-success">
+                  {{ languageLabel(locale.code) }}
                 </span>
-                <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
-                <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+
+                <span
+                  v-if="!editor.loader.pending && !hasLocaleDraft(locale.code)"
+                  class="ginko:text-muted-foreground"
+                >
                   {{
                     editor.loader.t(
                       'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
@@ -208,19 +191,23 @@ function swapLocales() {
             variant="ghost"
             size="icon-sm"
             class="ginko:shrink-0"
-            aria-label="Swap languages"
+            :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.swapLanguages')"
             @click="swapLocales"
           >
             <ArrowLeftRight class="ginko:size-3.5" />
           </Button>
           <Select
             :model-value="secondaryLocale"
-            :disabled="editor.draft.saving || !editor.loader.canEditEntries"
+            :disabled="editor.draft.saving"
             @update:model-value="editor.locales.handleSelectSecondaryLocale($event ?? '')"
           >
             <SelectTrigger
               class="studio-entry-compare-toolbar__locale-trigger ginko:border-border/60"
-              :aria-label="`Select comparison language. Current ${secondaryLocaleLabel}`"
+              :aria-label="
+                editor.loader.t('ginkoCms.studio.collectionEditor.selectComparisonLanguage', {
+                  language: secondaryLocaleLabel,
+                })
+              "
             >
               <Icon
                 v-if="localeFlag(secondaryLocale)"
@@ -228,10 +215,9 @@ function swapLocales() {
                 class="ginko:size-4 ginko:shrink-0"
                 aria-hidden="true"
               />
-              <span
-                class="studio-text-caption ginko:font-mono ginko:font-semibold ginko:uppercase"
-                >{{ secondaryLocaleLabel }}</span
-              >
+              <span class="studio-text-caption ginko:font-semibold">{{
+                secondaryLocaleLabel
+              }}</span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem
@@ -247,13 +233,14 @@ function swapLocales() {
                   class="ginko:mr-1 ginko:size-4 ginko:shrink-0"
                   aria-hidden="true"
                 />
-                <span
-                  class="studio-text-caption ginko:font-mono ginko:uppercase ginko:text-warning-fg"
-                >
-                  {{ locale.code.toUpperCase() }}
+                <span class="studio-text-caption ginko:text-warning-fg">
+                  {{ languageLabel(locale.code) }}
                 </span>
-                <span v-if="hasDistinctLocaleLabel(locale)">{{ locale.label }}</span>
-                <span v-if="!hasLocaleDraft(locale.code)" class="ginko:text-muted-foreground">
+
+                <span
+                  v-if="!editor.loader.pending && !hasLocaleDraft(locale.code)"
+                  class="ginko:text-muted-foreground"
+                >
                   {{
                     editor.loader.t(
                       'ginkoCms.studio.collectionEditor.translationReadinessMissingLabel',
@@ -266,10 +253,46 @@ function swapLocales() {
         </div>
       </template>
 
+      <div
+        class="ginko:inline-flex ginko:min-w-0 ginko:rounded-lg ginko:border ginko:border-border/60 ginko:bg-muted/50 ginko:p-0.5"
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          :aria-label="editor.loader.t('ginkoCms.studio.collectionEditor.compareLanguages')"
+          class="studio-entry-compare-toolbar__mode-button ginko:h-6 ginko:gap-1.5 ginko:px-2.5"
+          :class="
+            editor.locales.translationMode
+              ? 'ginko:bg-background ginko:text-foreground ginko:shadow-sm'
+              : 'ginko:text-muted-foreground ginko:hover:text-foreground'
+          "
+          :aria-pressed="editor.locales.translationMode"
+          @click="toggleMode(!editor.locales.translationMode)"
+        >
+          <Brackets class="ginko:size-3.5" />
+          <span class="studio-entry-compare-toolbar__mode-label">
+            {{
+              editor.loader.t(
+                editor.locales.translationMode
+                  ? 'ginkoCms.studio.collectionEditor.finishComparing'
+                  : 'ginkoCms.studio.collectionEditor.compareLanguages',
+              )
+            }}
+          </span>
+        </Button>
+      </div>
+
+      <Button variant="ghost" size="sm" @click="openLanguageReview">
+        <Languages class="ginko:size-3.5" />
+        {{ editor.loader.t('ginkoCms.studio.translationReview.title') }}
+      </Button>
+
       <Button v-if="advancedEditor" variant="ghost" size="sm" class="ginko:ml-auto" as-child>
         <RouterLink to="/settings" class="ginko:gap-2">
           <Settings class="ginko:size-3.5" />
-          <span class="studio-entry-compare-toolbar__settings-label">Manage languages</span>
+          <span class="studio-entry-compare-toolbar__settings-label">{{
+            editor.loader.t('ginkoCms.studio.collectionEditor.manageLanguages')
+          }}</span>
         </RouterLink>
       </Button>
     </div>
@@ -280,12 +303,15 @@ function swapLocales() {
 .studio-entry-compare-toolbar__locales {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
 
 .studio-entry-compare-toolbar__inner {
-  height: var(--studio-shell-toolbar-height);
+  min-height: var(--studio-shell-toolbar-height);
+  flex-wrap: wrap;
+  padding-block: 0.5rem;
 }
 
 .studio-entry-compare-toolbar__locale-trigger {
@@ -295,6 +321,10 @@ function swapLocales() {
 }
 
 @media (max-width: 419px) {
+  .studio-entry-compare-toolbar__inner {
+    gap: 0.5rem;
+    padding-inline: 1rem;
+  }
   .studio-entry-compare-toolbar__mode-label,
   .studio-entry-compare-toolbar__settings-label {
     display: none;

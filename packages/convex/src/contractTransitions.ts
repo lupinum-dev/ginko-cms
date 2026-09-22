@@ -19,10 +19,13 @@ import {
   stageContractTransitionPageHandler,
 } from './contractTransitions/staging.js'
 import { validateContractTransitionPageHandler } from './contractTransitions/validation.js'
-import { directInternalMutation, directInternalQuery } from './functions.js'
+import { mutation, query } from './functions.js'
 
-export const beginContractTransition = directInternalMutation({
-  id: 'contractTransitions:beginContractTransition',
+// Component exports must be public for the host to call them. The generated
+// host adapters remain internal: only deploy-key-authorized owner CLI calls
+// reach these installer operations. They are never exposed as browser APIs.
+
+export const beginContractTransition = mutation({
   args: {
     runKey: v.string(),
     targetContent: jsonObjectValidator,
@@ -43,8 +46,7 @@ export const beginContractTransition = directInternalMutation({
   handler: beginContractTransitionHandler,
 })
 
-export const listContractTransitionPage = directInternalQuery({
-  id: 'contractTransitions:listContractTransitionPage',
+export const listContractTransitionPage = query({
   args: {
     runId: v.id('contractTransitionRuns'),
     generation: v.number(),
@@ -66,8 +68,7 @@ export const listContractTransitionPage = directInternalQuery({
   handler: listContractTransitionPageHandler,
 })
 
-export const stageContractTransitionPage = directInternalMutation({
-  id: 'contractTransitions:stageContractTransitionPage',
+export const stageContractTransitionPage = mutation({
   args: {
     runId: v.id('contractTransitionRuns'),
     generation: v.number(),
@@ -87,8 +88,7 @@ export const stageContractTransitionPage = directInternalMutation({
   handler: stageContractTransitionPageHandler,
 })
 
-export const validateContractTransitionPage = directInternalMutation({
-  id: 'contractTransitions:validateContractTransitionPage',
+export const validateContractTransitionPage = mutation({
   args: {
     runId: v.id('contractTransitionRuns'),
     generation: v.number(),
@@ -105,8 +105,7 @@ export const validateContractTransitionPage = directInternalMutation({
   handler: validateContractTransitionPageHandler,
 })
 
-export const applyContractTransitionPage = directInternalMutation({
-  id: 'contractTransitions:applyContractTransitionPage',
+export const applyContractTransitionPage = mutation({
   args: {
     runId: v.id('contractTransitionRuns'),
     generation: v.number(),
@@ -124,8 +123,7 @@ export const applyContractTransitionPage = directInternalMutation({
   handler: applyContractTransitionPageHandler,
 })
 
-export const activateContractTransition = directInternalMutation({
-  id: 'contractTransitions:activateContractTransition',
+export const activateContractTransition = mutation({
   args: {
     runId: v.id('contractTransitionRuns'),
     generation: v.number(),
@@ -140,15 +138,13 @@ export const activateContractTransition = directInternalMutation({
   handler: activateContractTransitionHandler,
 })
 
-export const cancelContractTransition = directInternalMutation({
-  id: 'contractTransitions:cancelContractTransition',
+export const cancelContractTransition = mutation({
   args: { runId: v.id('contractTransitionRuns') },
   returns: v.object({ state: v.literal('cancelled') }),
   handler: cancelContractTransitionHandler,
 })
 
-export const getContractTransitionStatus = directInternalQuery({
-  id: 'contractTransitions:getContractTransitionStatus',
+export const getContractTransitionStatus = query({
   args: { runId: v.id('contractTransitionRuns') },
   returns: v.object({
     runKey: v.string(),

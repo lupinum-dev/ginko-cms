@@ -96,6 +96,35 @@ describe('ginko-content contract artifact consumption', () => {
     expect(projected.posts?.fields?.every((field) => field.label === undefined)).toBe(true)
   })
 
+  it('projects routed structured pages without inventing an article field', () => {
+    const contract = buildResolvedContentContract(
+      {
+        collections: {
+          landing: defineCollection({
+            type: 'page',
+            body: false,
+            route: '/landing',
+            i18n: true,
+            schema: z.object({ cta: fields.text().localized() }),
+          }),
+          article: defineCollection({ type: 'page', route: '/blog' }),
+        },
+      },
+      { defaultLocale: 'en', locales: ['en', 'de'] },
+    )
+    const projected = projectContractCollections(contract)
+    expect(projected.landing?.routing).toMatchObject({ mode: 'route', pathPrefix: '/landing' })
+    expect(projected.landing?.settings).toMatchObject({
+      portable: { format: 'json', bodyField: null },
+    })
+    expect(projected.landing?.fields?.map((field) => field.key)).toEqual([
+      'title',
+      'description',
+      'cta',
+    ])
+    expect(projected.article?.fields?.some((field) => field.key === 'bodyMdc')).toBe(true)
+  })
+
   it('takes translated slug policy only from Content i18n config', async () => {
     const docs = defineCollection({
       type: 'page',
@@ -161,5 +190,40 @@ describe('ginko-content contract artifact consumption', () => {
         },
       }),
     ).toThrow(/unknown key "routing"/)
+  })
+
+  it('transports JSON authoring metadata only when it uses the Content policy', () => {
+    const contract = buildResolvedContentContract(
+      {
+        collections: {
+          docs: defineCollection({ type: 'page', source: 'content/docs/**/*.md', route: '/docs' }),
+        },
+      },
+      { defaultLocale: 'en', locales: ['en'] },
+    )
+    const policy = contract.collections.docs!.componentPolicy
+    const authoring = {
+      version: 1,
+      policy,
+      implementation: {},
+      authoring: {},
+      recipes: [],
+    }
+
+    expect(
+      projectContractCollections(contract, {
+        collections: { docs: { authoring, fields: {} } },
+      }).docs?.settings,
+    ).toMatchObject({ authoring, componentPolicy: policy })
+    expect(() =>
+      projectContractCollections(contract, {
+        collections: {
+          docs: {
+            authoring: { ...authoring, policy: { version: 2, components: { extra: {} } } },
+            fields: {},
+          },
+        },
+      }),
+    ).toThrow(/must exactly match its resolved Ginko Content policy/)
   })
 })

@@ -539,6 +539,10 @@ exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 05-mdc-compone
           },
         ],
         "props": {
+          "$": {
+            "block": 1,
+            "component": 1,
+          },
           "variant": "info",
         },
         "tag": "badge",
@@ -566,7 +570,12 @@ exports[`Gate 0 - golden MDC parser fixtures > matches snapshot - 05-mdc-compone
             "value": " content.",
           },
         ],
-        "props": {},
+        "props": {
+          "$": {
+            "block": 1,
+            "component": 1,
+          },
+        },
         "tag": "card",
         "type": "element",
       },

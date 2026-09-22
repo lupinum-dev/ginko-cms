@@ -6,6 +6,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [vue()],
   test: {
+    // Delivery tests exercise the installed Content endpoint while replacing
+    // its host-runtime loaders, so Vite must process those dependency imports.
+    server: { deps: { inline: ['@lupinum/ginko-content'] } },
     include:
       process.env.GINKO_CMS_PACKAGE_CONSUMER_TEST === '1'
         ? ['test/module/e2e-package-consumer.test.ts']
@@ -21,7 +24,7 @@ export default defineConfig({
     // Boundary tests mock these package owners. Resolve their root and
     // package-local peer-context instances to one test identity so the mock
     // cannot miss imports made from packages/cms.
-    dedupe: ['@nuxt/kit', '@lupinum/better-convex-nuxt'],
+    dedupe: ['@nuxt/kit', '@lupinum/better-convex-nuxt', '@lupinum/ginko-content'],
     alias: {
       '#imports': resolve(__dirname, 'test/helpers/nuxt-imports-shim.ts'),
       '#convex/api': resolve(__dirname, 'test/helpers/convex-api-shim.ts'),
@@ -55,6 +58,7 @@ export default defineConfig({
       '@lupinum/ginko-cms-contract': resolve(__dirname, 'packages/contract/src'),
       '@lupinum/ginko-cms-convex/mcp': resolve(__dirname, 'packages/convex/src/mcpHandler.ts'),
       '@lupinum/ginko-cms-convex': resolve(__dirname, 'packages/convex/src'),
+      '@lupinum/ginko-cms/editing': resolve(__dirname, 'packages/cms/src/public/editing/index.ts'),
       '@lupinum/ginko-cms': resolve(__dirname, 'packages/cms/src/module.ts'),
       vue: resolve(__dirname, 'node_modules/vue'),
       // vue-router is a dependency of packages/cms (used by the Studio SPA) and

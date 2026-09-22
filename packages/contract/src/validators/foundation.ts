@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import type { Validator } from 'convex/values'
 
+import { CMS_JSON_MAX_DEPTH } from '../types.js'
 import type {
   AssetScope,
   ActivityOutcome,
@@ -46,7 +47,7 @@ export const cmsRoleValidator = v.union(
   v.literal('viewer'),
 ) as Validator<CmsRole, 'required', string>
 
-export const jsonValueValidator = createJsonValueValidator(8)
+export const jsonValueValidator = createJsonValueValidator(CMS_JSON_MAX_DEPTH)
 
 export const jsonObjectValidator = v.record(v.string(), jsonValueValidator) as Validator<
   JsonObject,

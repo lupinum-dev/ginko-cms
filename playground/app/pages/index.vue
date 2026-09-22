@@ -6,6 +6,9 @@
       @lupinum/better-convex-nuxt.
     </p>
     <div class="flex gap-4">
+      <NuxtLink to="/landing/home" class="px-4 py-2 bg-emerald-50 rounded-md hover:bg-emerald-100">
+        View landing page
+      </NuxtLink>
       <NuxtLink to="/blog" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">
         View Blog
       </NuxtLink>

@@ -5,7 +5,11 @@ import { parseMdcBody, type ParseMdcBodyResult } from '@lupinum/ginko-content/cm
 
 import type { Doc, Id } from '../../_generated/dataModel.js'
 import { throwCmsError } from '../../errors.js'
-import { getCollectionDefaultLocale } from '../../lib/collections.js'
+import {
+  assertCollectionBodySupported,
+  getCollectionBodyField,
+  getCollectionDefaultLocale,
+} from '../../lib/collections.js'
 import { resolveEntryDescription, resolveEntryTitle } from '../../lib/fields.js'
 import { buildPublicSearchText, filterPublicData } from '../../lib/publicData.js'
 import type { CmsCollection, CmsField, QueryOrMutationCtx } from '../../lib/types.js'
@@ -114,7 +118,10 @@ async function projectionBodyFromSnapshot(
   ctx: QueryOrMutationCtx,
   localeSnapshot: RevisionLocaleSnapshot,
   collection: CmsCollection,
-): Promise<{ bodyAst: MarkdownRoot; searchText: string; toc: Toc | null }> {
+): Promise<{ bodyAst: MarkdownRoot | null; searchText: string; toc: Toc | null }> {
+  assertCollectionBodySupported(collection, localeSnapshot.bodyMdc ?? '')
+  if (getCollectionBodyField(collection) === null)
+    return { bodyAst: null, searchText: '', toc: null }
   const parsed = await parseMdcBody(localeSnapshot.bodyMdc ?? '')
   await assertPublicBodySafe(ctx, parsed.body, collection)
   return {

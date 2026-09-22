@@ -44,6 +44,10 @@
     "./nuxt-provider": {
       "types": "./dist/nuxt-provider.d.ts",
       "import": "./dist/nuxt-provider.mjs"
+    },
+    "./editing": {
+      "types": "./dist/public/editing/index.d.ts",
+      "import": "./dist/public/editing/index.js"
     }
   },
   "publishConfig": {
@@ -80,39 +84,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@tiptap/core": "^3.23.4",
-    "@tiptap/extension-blockquote": "^3.23.4",
-    "@tiptap/extension-bold": "^3.23.4",
-    "@tiptap/extension-bullet-list": "^3.23.4",
-    "@tiptap/extension-code": "^3.23.4",
-    "@tiptap/extension-code-block": "^3.23.4",
-    "@tiptap/extension-document": "^3.23.4",
-    "@tiptap/extension-dropcursor": "^3.23.4",
-    "@tiptap/extension-gapcursor": "^3.23.4",
-    "@tiptap/extension-hard-break": "^3.23.4",
-    "@tiptap/extension-heading": "^3.23.4",
-    "@tiptap/extension-history": "^3.23.4",
-    "@tiptap/extension-horizontal-rule": "^3.23.4",
-    "@tiptap/extension-italic": "^3.23.4",
-    "@tiptap/extension-link": "^3.23.4",
-    "@tiptap/extension-list-item": "^3.23.4",
-    "@tiptap/extension-ordered-list": "^3.23.4",
-    "@tiptap/extension-paragraph": "^3.23.4",
-    "@tiptap/extension-placeholder": "^3.23.4",
-    "@tiptap/extension-strike": "^3.23.4",
-    "@tiptap/extension-table": "^3.23.4",
-    "@tiptap/extension-table-cell": "^3.23.4",
-    "@tiptap/extension-table-header": "^3.23.4",
-    "@tiptap/extension-table-row": "^3.23.4",
-    "@tiptap/extension-task-item": "^3.23.4",
-    "@tiptap/extension-task-list": "^3.23.4",
-    "@tiptap/extension-text": "^3.23.4",
-    "@tiptap/extension-typography": "^3.23.4",
-    "@tiptap/extension-underline": "^3.23.4",
-    "@tiptap/pm": "^3.23.4",
-    "@tiptap/starter-kit": "^3.23.4",
-    "@tiptap/suggestion": "^3.23.4",
-    "@tiptap/vue-3": "^3.23.4",
+    "@lupinum/ginko-editor": "0.1.0",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/vue-3": "3.31.3",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vueuse/core": "^14.3.0",
     "class-variance-authority": "^0.7.1",
@@ -128,7 +103,7 @@
     "vue-router": "^5.0.7"
   },
   "peerDependencies": {
-    "@lupinum/ginko-content": "1.0.0-beta.8",
+    "@lupinum/ginko-content": "1.0.0-beta.9",
     "better-auth": "1.7.2",
     "nuxt": "4.5.2",
     "vue": "3.5.42"
