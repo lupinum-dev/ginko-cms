@@ -4,19 +4,21 @@
     "@lupinum/ginko-cms": "0.2.0-rc.3",
     "@lupinum/ginko-cms-convex": "0.2.0-rc.3",
     "@lupinum/ginko-cms-contract": "0.2.0-rc.3",
-    "@lupinum/ginko-content": "1.0.0-beta.8",
+    "@lupinum/ginko-content": "1.0.0-beta.9",
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
     "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
-    "@lupinum/better-convex-vue": "1.0.0-beta.5"
+    "@lupinum/better-convex-vue": "1.0.0-beta.5",
+    "@lupinum/ginko-editor": "0.1.0"
   },
   "sourceRehearsal": {
     "betterConvexCommit": "7e7ff1f71af1edc738166709d3f4463ad736ed06"
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "fe1a2bb880990d65a18ee37c3ab34a6ee716587b",
-      "sha256": "689ea984f0a6f5e67dff9d874aadb7048ce5d2a0cdb124d597cb185fd3097cc5",
-      "integrity": "sha512-h4yJQM6En8VRWD0yXWbUbQFhsF3HpSraDU1gDLl9VfZEobwC59GjQSd2dsU4sGKYVW6onH0pQ7wY0aTs7Kn3Tw==",
+      "sourceCommit": "05813676d352a50dee27d25af8a23144cd6049fd",
+      "worktreeDirty": true,
+      "sha256": "7ff48fd749e1962463c75d460bb2d8c26b534db41255031a8029f070f74bb24d",
+      "integrity": "sha512-dry69JJO9XyVdOfi+BbLT6Z539UZPJWG6D3A2fHGcerTCSH+vJKuxuTM6LUZzSddnV4BaH/rI5Kn7PtQH6NZBQ==",
       "releaseCertification": "local-source-candidate-only"
     },
     "@lupinum/better-convex-mcp": {
@@ -39,6 +41,13 @@
       "sha256": "0cad1afbf053192ac83179864bfe05adf84bd395738405aef990b4d5445267d8",
       "integrity": "sha512-pBje/jknmN4ugVxsyl3ezpc2Ks85AQ5GonUjaW/J6wEehwL4lV3PeRovrvvieHx7xRrxvqSFO0K97m70rAtvTQ==",
       "releaseCertification": "release-ready"
+    },
+    "@lupinum/ginko-editor": {
+      "sourceCommit": "b834ddf6eff82a9b579a698e958c85ccf9b3b07c",
+      "worktreeDirty": false,
+      "sha256": "1dd15f2a07d3d4f7e4b5af0a11801693e296950607dfcc731f0a3b3aebd66fe0",
+      "integrity": "sha512-LOyOC542ePk0f37vSF4rbPH8Gilav5Z82jDUw7QNZ+I3+VccvbQSkRkrn04Dx0odU1rZ9pCYgG/hcVmyGIdcNQ==",
+      "releaseCertification": "local-source-candidate-only"
     }
   },
   "tracked": {
@@ -48,7 +57,7 @@
     "@nuxt/kit": ["4.5.2"],
     "@better-auth/oauth-provider": ["1.7.2"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
-    "@lupinum/ginko-content": ["1.0.0-beta.8"],
+    "@lupinum/ginko-content": ["1.0.0-beta.9"],
     "better-auth": ["1.7.2"],
     "@lupinum/better-convex-nuxt": ["1.0.0-beta.5"],
     "@lupinum/better-convex-vue": ["1.0.0-beta.5"],
@@ -59,13 +68,14 @@
     "typescript": ["~5.9.3", "^5.9.3", "5.9.3"],
     "vite": ["8.1.5"],
     "vue": ["3.5.42"],
-    "vue-tsc": ["^3.3.7", "3.3.7"]
+    "vue-tsc": ["^3.3.7", "3.3.7"],
+    "@lupinum/ginko-editor": ["0.1.0"]
   },
   "consumer": {
     "dependencies": {
       "@nuxt/kit": "4.5.2",
       "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-      "@lupinum/ginko-content": "1.0.0-beta.8",
+      "@lupinum/ginko-content": "1.0.0-beta.9",
       "better-auth": "1.7.2",
       "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
       "@lupinum/better-convex-vue": "1.0.0-beta.5",

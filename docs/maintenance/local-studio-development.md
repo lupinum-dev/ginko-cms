@@ -92,25 +92,19 @@ workflow runs the source-linked local workspace during active development. It
 does not relax peer resolution or alter candidate manifests; clean packed
 consumers still install from scratch and enforce the compatibility tuple.
 
-## Test an unpublished Editor candidate
+## Local Content and Editor candidates
 
-Use immutable package archives without changing CMS package metadata:
+This integration branch installs the reviewed Content beta.9 and Editor 0.1.0
+archives through the workspace overrides. Copy the exact archives recorded in
+`packages/cms/compatibility.json` to `.pack/upstream/`, then run
+`corepack pnpm install --frozen-lockfile`. Both packages share the host's Vue,
+TipTap and Content instances through the normal dependency graph.
 
-```bash
-GINKO_EDITOR_TARBALL=/absolute/path/to/lupinum-ginko-editor-0.1.0.tgz \
-GINKO_EDITOR_SHA256=fdbbe3c0461df93d6edafb39f2e164e9709eab9fe2d083e61127c0e2f5d75e87 \
-GINKO_CONTENT_TARBALL=/absolute/path/to/lupinum-ginko-content-1.0.0-beta.7.tgz \
-GINKO_CONTENT_SHA256=b97c7a4aa224a7ce39c9a9190a7869247c117607e6a0d983501defb128314aa5 \
-pnpm run dev:editor-candidates
-```
-
-The command verifies the exact archive hashes and rejects local dependency
-specifiers in their release manifests. It builds an ignored consumer under
-`.candidate/`, binds Editor's Vue, TipTap, and Content peers to one physical
-instance, links the candidate packages into the root and CMS package, and writes
-`.candidate/editor-integration/evidence.json`. Run the normal Studio command
-after this setup. A clean `pnpm install --frozen-lockfile` restores registry
-dependencies because no source manifest or lockfile is changed.
+The archives are local development candidates, not registry-approved releases.
+Their source commits and hashes identify the tested bytes. Do not substitute an
+older package with the same version. `internals/migrations.md` records the
+registry cutover and rollback conditions. There is no post-install script that
+silently replaces dependency links.
 
 Open:
 
