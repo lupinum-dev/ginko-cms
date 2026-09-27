@@ -216,6 +216,14 @@ freshly resolved URLs follow the currently running backend's origin.
   the configured first owner or an existing CMS member.
 - Empty or failed CMS queries: rerun `corepack pnpm run dev:prepare` and inspect
   the Convex deployment logs.
+- Shared component changes still use old validators after a package rebuild:
+  the component build removes `dist` before recreating it. A running Convex
+  watcher can fail on the missing `dist/component/convex.config.js` and stop
+  rebuilding. Let the build finish, then stop and restart the same checked
+  local watcher (or `dev:consumer`). Keep its existing `.env.local`, database
+  and ports. Wait for a new `Convex functions ready!` before testing. Component
+  `codegen` only analyzes functions and generates types; its "Uploading
+  functions" progress line is not evidence that runtime code was deployed.
 - Installed contract differs after a restart: preparation resolves the current
   Content policy, but the launcher never installs a contract or migrates data.
   Prepare after changing Content configuration, then use the normal CMS
@@ -239,7 +247,7 @@ freshly resolved URLs follow the currently running backend's origin.
 
 ## Local Content and Editor candidates
 
-This integration branch installs the reviewed Content beta.9 and Editor 0.1.0
+This integration branch installs local Content beta.10 and Editor 0.1.0
 archives through the workspace overrides. Copy the exact archives recorded in
 `packages/cms/compatibility.json` to `.pack/upstream/`, then run
 `corepack pnpm install --frozen-lockfile`. Both packages share the host's Vue,
