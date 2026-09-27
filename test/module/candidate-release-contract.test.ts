@@ -52,7 +52,7 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/ginko-cms': '0.2.0-rc.3',
       '@lupinum/ginko-cms-convex': '0.2.0-rc.3',
       '@lupinum/ginko-cms-contract': '0.2.0-rc.3',
-      '@lupinum/ginko-content': '1.0.0-beta.9',
+      '@lupinum/ginko-content': '1.0.0-beta.10',
       '@lupinum/ginko-editor': '0.1.0',
       '@lupinum/better-convex-mcp': '1.0.0-beta.1',
       '@lupinum/better-convex-nuxt': '1.0.0-beta.5',
@@ -317,7 +317,7 @@ describe('coordinated CMS candidate release contract', () => {
       releaseArtifacts: Record<string, { releaseCertification: string; sha256: string }>
     }>('packages/cms/compatibility.json')
     const candidates = {
-      '@lupinum/ginko-content': 'file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz',
+      '@lupinum/ginko-content': 'file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz',
       '@lupinum/ginko-editor': 'file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz',
     }
     expect(workspace.overrides).toEqual(candidates)

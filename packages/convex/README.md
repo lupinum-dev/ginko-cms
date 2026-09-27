@@ -33,6 +33,13 @@ import { defineApp } from 'convex/server'
 - `@lupinum/ginko-cms-convex/mcp`
 - `@lupinum/ginko-cms-convex/component`
 - `@lupinum/ginko-cms-convex/operations`
+- `@lupinum/ginko-cms-convex/assets`
+
+The `assets` subpath supplies the authenticated host HTTP handler for private
+media. Generated setup binds it to the component-only delivery descriptor and
+the deployment's storage origin. The Nuxt gateway combines bounded chunks while
+each request checks current membership; never expose the descriptor as a public
+host query. Published media retains its existing public projection URLs.
 
 The `mcp` subpath handles one request through Better Convex's request-local
 transport and Ginko's fixed tool catalog. Generated host setup binds those

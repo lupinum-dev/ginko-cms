@@ -207,6 +207,7 @@ describe('package boundary contracts', () => {
     ])
 
     expect(Object.keys(convexPackage.exports ?? {}).sort()).toEqual([
+      './assets',
       './component',
       './convex.auth',
       './convex.config',
@@ -501,6 +502,8 @@ describe('package boundary contracts', () => {
       'diagnostics.js',
       'draftPreview.js',
       'editor.js',
+      'entries/collaboration.js',
+      'entries/collaborationCleanup.js',
       'entries/draft.js',
       'entries/projectionMaintenance.js',
       'entries/publish.js',
