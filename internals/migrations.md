@@ -33,6 +33,12 @@ Copy its `lupinum-ginko-editor-0.1.0.tgz` over the original from
 `/Users/matthias/Git/_planning/preservation/cms-2026-09-28/upstream-f8887e0/`.
 Its SHA-256 is `6f9f592b25285d0ea2ac4daf32591e36f8c22644763432e572dce48de8ea7896`.
 
+The current local tuple also updates Content to `300b640` after its source-watch
+ownership repair. Copy `lupinum-ginko-content-1.0.0-beta.10.tgz` from
+`/Users/matthias/Git/_planning/preservation/cms-2026-09-28/upstream-300b640/` over
+the original. Its SHA-256 is
+`00f4cbfcd56c8d4e5ee5881bdcfeb17c903675f18f821e963d48a6421c1226dd`.
+
 Rebuilding from the two source commits is also possible with each repository's
 documented build and pack command, but new archive bytes require updating the
 recorded integrity, lockfile and checks. Later preview updates must retain this

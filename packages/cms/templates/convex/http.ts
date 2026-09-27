@@ -2,6 +2,7 @@
 import { httpRouter } from 'convex/server'
 
 import { auth } from './auth'
+import { handle as assetDelivery } from './ginkoCms/assetDelivery'
 // GINKO_MCP_BEGIN
 import { handle as mcp } from './ginkoCms/mcp'
 // GINKO_MCP_END
@@ -9,6 +10,7 @@ import { handle as mcp } from './ginkoCms/mcp'
 const http = httpRouter()
 
 auth.registerRoutes(http)
+http.route({ pathPrefix: '/ginko/assets/', method: 'GET', handler: assetDelivery })
 // GINKO_MCP_BEGIN
 http.route({ path: '/mcp', method: 'GET', handler: mcp })
 http.route({ path: '/mcp', method: 'POST', handler: mcp })

@@ -2,11 +2,13 @@
 import { httpRouter } from 'convex/server'
 
 import { auth } from './auth'
+import { handle as assetDelivery } from './ginkoCms/assetDelivery'
 import { handle as mcp } from './ginkoCms/mcp'
 
 const http = httpRouter()
 
 auth.registerRoutes(http)
+http.route({ pathPrefix: '/ginko/assets/', method: 'GET', handler: assetDelivery })
 http.route({ path: '/mcp', method: 'GET', handler: mcp })
 http.route({ path: '/mcp', method: 'POST', handler: mcp })
 http.route({ path: '/mcp', method: 'DELETE', handler: mcp })

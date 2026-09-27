@@ -15,10 +15,10 @@
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "49286505140a7df7ef0d4537ad826fcb115b89a1",
+      "sourceCommit": "300b6406babb268eec33ea0ee4ff5b645ae0f2d3",
       "worktreeDirty": false,
-      "sha256": "3e97784303cd5f9aa5da00c530a07d62e401a115aba2585c90ea638bb945ebc5",
-      "integrity": "sha512-iAhKBrmWpY+LvxEcz23J4dwYOQREKFPtN18AZ1O6hx6DXP7lEONAPsVRwHxk6eTN+SLM+qiEfK1J+1oexQwW4A==",
+      "sha256": "00f4cbfcd56c8d4e5ee5881bdcfeb17c903675f18f821e963d48a6421c1226dd",
+      "integrity": "sha512-Z5B+4X/F5/pP16tt7AxplesCYaLQsON8prXO8Y+BO9q3GcXmmexBGZPtAPfukjpL9tKgbPTi7bqCXEP0W19Zig==",
       "releaseCertification": "local-source-candidate-only"
     },
     "@lupinum/better-convex-mcp": {

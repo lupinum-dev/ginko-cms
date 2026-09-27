@@ -136,6 +136,7 @@ describe('ginko-cms Convex setup validation', () => {
     const nuxt = createNuxtMock(rootDir)
     nuxt.options.routeRules = {
       '/studio/**': { headers: { 'x-studio-rule': 'preserved' }, prerender: true },
+      '/api/_ginko/assets/**': { cache: { maxAge: 900 }, swr: 900, isr: 900 },
     }
     await setupModule({ route: '/studio' }, nuxt)
 
@@ -155,6 +156,8 @@ describe('ginko-cms Convex setup validation', () => {
       },
       '/preview': { cache: false, isr: false, swr: false, prerender: false },
       '/preview/**': { cache: false, isr: false, swr: false, prerender: false },
+      '/api/_ginko/assets': { cache: false, isr: false, swr: false, prerender: false },
+      '/api/_ginko/assets/**': { cache: false, isr: false, swr: false, prerender: false },
       '/studio/**': {
         headers: { 'x-studio-rule': 'preserved' },
         prerender: false,
@@ -175,6 +178,18 @@ describe('ginko-cms Convex setup validation', () => {
     )
     expect(existsSync(resolve(rootDir, 'convex/betterAuth/schema.ts'))).toBe(false)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/collections.ts'))).toBe(true)
+    expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/assetDelivery.ts'), 'utf8')).toContain(
+      'storageOrigin: process.env.CONVEX_CLOUD_URL',
+    )
+    expect(readFileSync(resolve(rootDir, 'convex/ginkoCms/assets.ts'), 'utf8')).not.toContain(
+      'getAssetDeliveryDescriptor',
+    )
+    expect(readFileSync(resolve(rootDir, 'convex/http.ts'), 'utf8')).toContain(
+      "pathPrefix: '/ginko/assets/'",
+    )
+    expect(addServerHandler).toHaveBeenCalledWith(
+      expect.objectContaining({ route: '/api/_ginko/assets/:assetId', method: 'get' }),
+    )
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpOAuthDelegations.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/passwordRecovery.ts'))).toBe(true)
     expect(existsSync(resolve(rootDir, 'convex/ginkoCms/mcpKeys.ts'))).toBe(false)

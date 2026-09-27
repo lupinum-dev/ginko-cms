@@ -9,12 +9,14 @@
  */
 
 import type * as agentRuns from "../agentRuns.js";
+import type * as assetDeliveryHttp from "../assetDeliveryHttp.js";
 import type * as assetRecovery from "../assetRecovery.js";
 import type * as assetRecovery_archive from "../assetRecovery/archive.js";
 import type * as assetRecovery_verification from "../assetRecovery/verification.js";
 import type * as assets from "../assets.js";
 import type * as assets_assetRecord from "../assets/assetRecord.js";
 import type * as assets_cleanupOperations from "../assets/cleanupOperations.js";
+import type * as assets_deliveryUrl from "../assets/deliveryUrl.js";
 import type * as assets_listing from "../assets/listing.js";
 import type * as assets_purge from "../assets/purge.js";
 import type * as assets_purgeExecution from "../assets/purgeExecution.js";
@@ -208,12 +210,14 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   agentRuns: typeof agentRuns;
+  assetDeliveryHttp: typeof assetDeliveryHttp;
   assetRecovery: typeof assetRecovery;
   "assetRecovery/archive": typeof assetRecovery_archive;
   "assetRecovery/verification": typeof assetRecovery_verification;
   assets: typeof assets;
   "assets/assetRecord": typeof assets_assetRecord;
   "assets/cleanupOperations": typeof assets_cleanupOperations;
+  "assets/deliveryUrl": typeof assets_deliveryUrl;
   "assets/listing": typeof assets_listing;
   "assets/purge": typeof assets_purge;
   "assets/purgeExecution": typeof assets_purgeExecution;

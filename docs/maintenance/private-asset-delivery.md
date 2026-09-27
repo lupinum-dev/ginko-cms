@@ -14,8 +14,18 @@ The installed Nitro 2.13.4 Vercel preset emits `supportsResponseStreaming: true`
 
 ## Integration owned by lane B
 
+The local integration branch now implements this registration contract in the
+package exports, setup templates, generated playground and basic fixture, Nuxt
+handler registration and private route rules. Module/cache/transport checks
+pass, including real Nitro catch-all normalization. This is source integration;
+actual authenticated provider/browser and hosted acceptance remain open.
+
 1. Export `assetDeliveryHttp` as `@lupinum/ginko-cms-convex/assets`; regenerate the component declaration including `assets.getAssetDeliveryDescriptor`.
 2. Generate a host `ginkoCms/assetDelivery.ts` HTTP action calling `handleGinkoAssetRequest(ctx, request, { descriptorQuery: components.ginkoCms.assets.getAssetDeliveryDescriptor, storageOrigin })`. Bind `storageOrigin` to the configured deployment cloud origin, never request data.
+
+   The template uses Convex's system `CONVEX_CLOUD_URL`, which also determines
+   storage download URLs ([Convex environment variables](https://docs.convex.dev/production/environment-variables)).
+
 3. Register the host GET path prefix `/ginko/assets/` and the Nuxt GET route `/api/_ginko/assets/:assetId` backed by `server/routes/private-asset`.
 4. Include `/api/_ginko/assets` in `protectPrivateRoutes` and test inherited catch-all cache/ISR/SWR rules. Response headers alone cannot prevent an outer route cache from running first.
 5. Apply the gateway registration and metadata URL change together in the review candidate. For deployment, install the host route before activating the backend URL mapping. Rebuild the installed-package consumer and verify Studio upload, image selection, preview and reload with two real sessions.

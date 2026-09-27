@@ -40,6 +40,7 @@ const coreSetupFiles = [
   'convex/schema.ts',
   'convex/ginkoCms/agentRuns.ts',
   'convex/ginkoCms/assets.ts',
+  'convex/ginkoCms/assetDelivery.ts',
   'convex/ginkoCms/assetRecovery.ts',
   'convex/ginkoCms/collections.ts',
   'convex/ginkoCms/contractBinding.ts',

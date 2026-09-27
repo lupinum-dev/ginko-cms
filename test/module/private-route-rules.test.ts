@@ -38,7 +38,7 @@ describe('private Studio and draft-preview routes', () => {
       '/blog/**': { isr: 1200 },
     }
     const publicBefore = structuredClone(rules['/blog/**'])
-    protectPrivateRoutes(rules, ['/studio', '/drafts'])
+    protectPrivateRoutes(rules, ['/studio', '/drafts', '/api/_ginko/assets'])
     const normalized = await loadOptions({
       rootDir: process.cwd(),
       preset: 'node-server',
@@ -53,6 +53,8 @@ describe('private Studio and draft-preview routes', () => {
       '/drafts',
       '/drafts/landing/example',
       '/drafts/blog/one',
+      '/api/_ginko/assets',
+      '/api/_ginko/assets/private-asset-id',
     ]) {
       const resolved = resolveRules(path)
       expect(resolved, path).toMatchObject({

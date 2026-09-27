@@ -605,6 +605,34 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         } | null,
         Name
       >;
+      getAssetDeliveryDescriptor: FunctionReference<
+        "query",
+        "internal",
+        {
+          _trustedCaller?:
+            | { kind: "anonymous"; subject: "system:anonymous" }
+            | {
+                email?: string;
+                emailVerified?: boolean;
+                kind: "user";
+                name?: string;
+                subject: string;
+                userId: string;
+              }
+            | {
+                clientId: string;
+                issuer: string;
+                kind: "mcp";
+                scopes: Array<string>;
+                subject: string;
+                userId: string;
+              }
+            | { deployId: string; kind: "deploy"; subject: string };
+          assetId: string;
+        },
+        null | { bytes: number; mimeType: string; sha256: string; url: string },
+        Name
+      >;
       getAssetManagerData: FunctionReference<
         "query",
         "internal",

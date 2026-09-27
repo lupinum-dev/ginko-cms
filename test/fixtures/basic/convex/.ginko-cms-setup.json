@@ -30,16 +30,16 @@
       "templateHash": "2369e09a9f0001676f3123cf76e1a94972b1fbf74d0877a0f80e2b459bad8258"
     },
     "convex/ginkoCms/editor.ts": {
-      "templateHash": "cf0d833a4e6a285bc86878c6b961666994132a2e4251f75112be773ff692f1fc"
+      "templateHash": "22c20e727994113b1465a0d0db0ce8a2849341b52cd1ea155c48f1c7c9e80113"
     },
     "convex/ginkoCms/members.ts": {
       "templateHash": "8cec2a4bbcf9706c54cc9e4517457cb07c41492c89e25d1dce9de488bdd41154"
     },
     "convex/ginkoCms/contractTransitions.ts": {
-      "templateHash": "7e58990bbb1cbed0fc903eff67f7bf6a165b7e63bc9d4c85f6f2188f68521a54"
+      "templateHash": "cc34885597cd8b6add54989e63eb3bc26df2fbf87f437757ef0b83c858371dd9"
     },
     "convex/ginkoCms/contract.ts": {
-      "templateHash": "d2ca0107db2c1ebdce12cd8adeabffa3e546b7fe3e04984e4304011c3db6c3fb"
+      "templateHash": "32bbe63877b10d149934f08c931db4293d087d66044491a86be2c621548570b0"
     },
     "convex/ginkoCms/portability.ts": {
       "templateHash": "e96b1d78787245d0cf76e9a68bba50e55f8d8defd7b8b383bb3ea28583978065"
@@ -60,7 +60,7 @@
       "templateHash": "585e8399e8f2cd755754d4d3933193487339d1cb7d4265ceda1cfc899de246e9"
     },
     "convex/http.ts": {
-      "templateHash": "2897f24e85fba4355f0a43b5ae50bb7abfe7d2c1fc35c89d03e62ffac90e9b68"
+      "templateHash": "5624aa40067cf4f0472c11d5e28878d9a52b8f1a8529541d71232e963339c712"
     },
     "convex/schema.ts": {
       "templateHash": "e83dc3aecfdc78a9da07228f7de7a5c8d71d143fe6b96a921a2c0b8735fd2c48"
@@ -88,6 +88,9 @@
     },
     "convex/ginkoCms/mcpOAuthDelegations.ts": {
       "templateHash": "4e18734699ddac647cf0568bd50d6d41df8aab230e8db1720a342cf0e1c4cc0b"
+    },
+    "convex/ginkoCms/assetDelivery.ts": {
+      "templateHash": "58c5675172c24cfaedcf2f855960811bb955ee3f3ba9bbef5b835e3074645acb"
     }
   },
   "mcp": true

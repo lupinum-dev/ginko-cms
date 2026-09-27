@@ -250,7 +250,9 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
 
     // These pages contain request-scoped identity or unpublished content. Host
     // catch-all caching must never turn them into a shared response.
-    const privateRoutes = [studioRoute, previewRoute].filter((route) => route !== null)
+    const privateRoutes = [studioRoute, previewRoute, '/api/_ginko/assets'].filter(
+      (route) => route !== null,
+    )
     nuxt.options.routeRules ??= {}
     protectPrivateRoutes(nuxt.options.routeRules, privateRoutes)
     nuxt.hook('nitro:config', (nitro) => {
@@ -343,6 +345,11 @@ const ginkoCmsModule: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions
       })
     }
 
+    addServerHandler({
+      route: '/api/_ginko/assets/:assetId',
+      method: 'get',
+      handler: resolve(cmsServerDir, 'routes/private-asset'),
+    })
     addServerHandler({
       route: OPERATOR_CONVEX_TOKEN_ROUTE,
       method: 'post',
