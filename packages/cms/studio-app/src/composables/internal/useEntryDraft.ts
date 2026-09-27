@@ -1,6 +1,8 @@
+import { getCollectionBodyField } from '@lupinum/ginko-cms-contract/shared/fields'
 import type { JsonObject, NodeKind } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
   EntryDraftSession,
+  type DraftPatch,
   entryDraftSnapshot,
   validateDraftSaveRequest,
 } from '@public/editing/index'
@@ -77,8 +79,25 @@ export function useEntryDraft(deps: EntryDraftDeps) {
           return result.ok
         },
         save: (request) => {
-          validateDraftSaveRequest(request)
-          return mutation(request)
+          // A mounted room owns its body. The scalar compare-and-set request
+          // carries neither that preview nor an old body in its merge base.
+          const scalarPatch = (patch: DraftPatch): DraftPatch => ({
+            ...patch,
+            locales: Object.fromEntries(
+              Object.entries(patch.locales ?? {}).map(([locale, value]) => {
+                if (!richtextFlush.sharedBodyLocales.value.has(locale)) return [locale, value]
+                const { bodyMdc: _body, ...fields } = value
+                return [locale, fields]
+              }),
+            ),
+          })
+          const scalar = {
+            ...request,
+            patch: scalarPatch(request.patch),
+            concurrency: { ...request.concurrency, base: scalarPatch(request.concurrency.base) },
+          }
+          validateDraftSaveRequest(scalar)
+          return mutation(scalar)
         },
       }),
     )
@@ -122,7 +141,11 @@ export function useEntryDraft(deps: EntryDraftDeps) {
     return `${prefix.replace(/\/$/, '')}/${form.slug}`
   })
   const editorContext = computed(() => ({ slug: form.slug, ...dataFields }))
+  const bodyField = computed(() =>
+    getCollectionBodyField({ settings: collectionConfig.value?.settings, fields: fields.value }),
+  )
   const assetContext = computed(() => ({
+    bodyField: bodyField.value,
     collection: collection.value,
     locale: currentLocale.value,
     entryId: entryId.value,
@@ -142,7 +165,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       if (!fields.value.some((field) => field.key === key)) Reflect.deleteProperty(dataFields, key)
     for (const field of fields.value) {
       dataFields[field.key] =
-        field.type === 'richtext'
+        field.key === bodyField.value
           ? (locale?.bodyMdc ?? '')
           : ((field.localized ? locale?.values : patch.shared?.shared)?.[field.key] ?? '')
     }
@@ -191,7 +214,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
       const locale = patch.locales?.[currentLocale.value]
       for (const field of fields.value) {
         if (JSON.stringify(before[field.key]) === JSON.stringify(dataFields[field.key])) continue
-        if (field.type === 'richtext') {
+        if (field.key === bodyField.value) {
           const body = dataFields[field.key]
           if (locale) locale.bodyMdc = typeof body === 'string' ? body : ''
           continue
@@ -245,8 +268,24 @@ export function useEntryDraft(deps: EntryDraftDeps) {
 
   async function handleSaveDraft(_silent = false) {
     const result = await session.value.flush()
+    if (!result) return false
+    // Shared operations advance the aggregate version independently of scalar
+    // saves. Publication and locale changes need the accepted server version.
+    if (richtextFlush.sharedBodyLocales.value.size) {
+      try {
+        await deps.refreshEntry()
+        await nextTick()
+        requestHydrate()
+      } catch (failure) {
+        error.value = getCmsErrorMessage(
+          failure,
+          'The saved draft could not be refreshed. Retry before continuing.',
+        )
+        return false
+      }
+    }
     hydrateFields()
-    return result
+    return !session.value.hasPendingWork
   }
   function requestHydrate() {
     if (
@@ -266,7 +305,7 @@ export function useEntryDraft(deps: EntryDraftDeps) {
   }
   function buildLocalizedData(source: Record<string, unknown>) {
     return buildCmsFieldData(
-      localizedFields.value.filter((field) => field.type !== 'richtext'),
+      localizedFields.value.filter((field) => field.key !== bodyField.value),
       source,
     )
   }

@@ -1427,7 +1427,7 @@ packages:
         optional: true
 
   '@lupinum/ginko-editor@file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz':
-    resolution: {integrity: sha512-bPwzODojY6YBY5qPDaJn30oJpwwKxw4QJP5OO/HbGF1lrpDGVbGY418lZEj4n+qFuHC9MJrovmUUzH7Fb+1uqw==, tarball: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz}
+    resolution: {integrity: sha512-zCL8Rl5kCADClVX6jJ9eaFV1lUig2G8JEmtcubvc7rJaVkROq6cJ/l0YmvF74/xlDJfx4BbrQ0vXEx0Ewrs6/A==, tarball: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz}
     version: 0.1.0
     engines: {node: '>=22.18.0'}
     peerDependencies:

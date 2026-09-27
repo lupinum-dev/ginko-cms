@@ -1,3 +1,4 @@
+import { getCollectionBodyField } from '@lupinum/ginko-cms-contract/shared/fields'
 import { normalizeFields } from '@lupinum/ginko-cms-contract/shared/fields/normalize.js'
 
 import { throwCmsError } from '../errors.js'
@@ -20,21 +21,7 @@ export function isRouteBackedCollection(collection: CmsCollection): boolean {
   return getCollectionMode(collection) === 'route'
 }
 
-/** The installed Content contract owns whether this collection has an article body. */
-export function getCollectionBodyField(
-  collection: Pick<CmsCollection, 'settings' | 'fields'>,
-): string | null {
-  const settings = collection.settings
-  if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
-    const portable = settings.portable
-    if (portable && typeof portable === 'object' && !Array.isArray(portable)) {
-      if (portable.bodyField === null) return null
-      if (typeof portable.bodyField === 'string') return portable.bodyField
-    }
-  }
-  // Legacy in-memory collection fixtures predate the installed portable contract.
-  return collection.fields.find((field) => field.type === 'richtext')?.key ?? null
-}
+export { getCollectionBodyField } from '@lupinum/ginko-cms-contract/shared/fields'
 
 export function assertCollectionBodySupported(
   collection: Pick<CmsCollection, 'slug' | 'settings' | 'fields'>,

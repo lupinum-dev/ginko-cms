@@ -61,7 +61,7 @@ const fields: StudioField[] = [
   { key: 'hero', type: 'image', localized: true },
   { key: 'theme', type: 'text', localized: false },
 ]
-function fixture(initial = entry()) {
+function fixture(initial = entry(), portable?: { bodyField: string | null }) {
   const current = ref<StudioEntry | null>(initial)
   const locale = ref(initial.locale)
   const entryId = ref(initial._id)
@@ -92,7 +92,7 @@ function fixture(initial = entry()) {
           collectionConfig: ref({
             _id: 'config',
             slug: 'landing',
-            settings: { componentPolicy: authoring.policy },
+            settings: { componentPolicy: authoring.policy, ...(portable ? { portable } : {}) },
             contract: { source: 'code', version: 'current-content' },
           }),
           isTree: ref(false),
@@ -129,6 +129,42 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('Studio shared session adapter', () => {
+  it('keeps a structured page richtext field in values instead of inventing an article body', async () => {
+    const initial = entry()
+    initial.localeData!.draft.bodyMdc = ''
+    initial.localeData!.draft.values.body = 'Structured introduction'
+    initial.locales![0]!.draft = initial.localeData!.draft
+    const f = fixture(initial, { bodyField: null })
+    try {
+      expect(f.subject.dataFields.body).toBe('Structured introduction')
+      expect(f.subject.assetContext.value.bodyField).toBeNull()
+      f.subject.dataFields.body = 'Updated structured introduction'
+      await nextTick()
+      expect(await f.subject.handleSaveDraft()).toBe(true)
+      const saved = mocks.save.mock.calls[0]![0]
+      expect(saved.patch.locales.en.bodyMdc).toBe('')
+      expect(saved.patch.locales.en.values.body).toBe('Updated structured introduction')
+    } finally {
+      f.wrapper.unmount()
+    }
+  })
+
+  it('excludes a room-owned body from scalar writes and their comparison base', async () => {
+    const f = fixture()
+    try {
+      f.richtext.setSharedBody('body:en', 'en')
+      f.subject.dataFields.title = 'Metadata only'
+      await nextTick()
+      expect(await f.subject.handleSaveDraft()).toBe(true)
+      const saved = mocks.save.mock.calls[0]![0]
+      expect(saved.patch.locales.en.values.title).toBe('Metadata only')
+      expect(saved.patch.locales.en).not.toHaveProperty('bodyMdc')
+      expect(saved.concurrency.base.locales.en).not.toHaveProperty('bodyMdc')
+    } finally {
+      f.wrapper.unmount()
+    }
+  })
+
   it('keeps publish and preview fenced after an uncertain save even if the person reverts the field', async () => {
     const f = fixture()
     try {

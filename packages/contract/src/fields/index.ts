@@ -5,3 +5,5 @@ export { evaluateFieldCondition } from './conditions.js'
 export { materializeFieldData, filterSortableValues } from './materialize.js'
 
 export { resolveTitleFieldKey, resolveEntryTitle } from './title.js'
+
+export { getCollectionBodyField } from './body.js'

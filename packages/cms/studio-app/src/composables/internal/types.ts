@@ -97,6 +97,8 @@ export interface StudioAssetRecord {
 }
 
 export interface StudioAssetContext {
+  /** Installed contract body identity; null means a structured page with no body. */
+  bodyField?: string | null
   authoringSource?: unknown
   locale?: string
   entryId?: string

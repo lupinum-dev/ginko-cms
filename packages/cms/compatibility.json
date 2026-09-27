@@ -43,10 +43,10 @@
       "releaseCertification": "release-ready"
     },
     "@lupinum/ginko-editor": {
-      "sourceCommit": "b88c658d733feb25c6808ecc3ecf83f91d0aa571",
+      "sourceCommit": "f8887e0ca86291230e1c7a4072d9b7d7c25d665a",
       "worktreeDirty": false,
-      "sha256": "6c8b9542e8a6875529359bbc16fa6e5dcbf9c4854d302a21ef00be4052fec005",
-      "integrity": "sha512-bPwzODojY6YBY5qPDaJn30oJpwwKxw4QJP5OO/HbGF1lrpDGVbGY418lZEj4n+qFuHC9MJrovmUUzH7Fb+1uqw==",
+      "sha256": "6f9f592b25285d0ea2ac4daf32591e36f8c22644763432e572dce48de8ea7896",
+      "integrity": "sha512-zCL8Rl5kCADClVX6jJ9eaFV1lUig2G8JEmtcubvc7rJaVkROq6cJ/l0YmvF74/xlDJfx4BbrQ0vXEx0Ewrs6/A==",
       "releaseCertification": "local-source-candidate-only"
     }
   },

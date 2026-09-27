@@ -196,6 +196,23 @@ describe('useEntryPublishing', () => {
     expect(mutationFns[0]).toHaveBeenCalledWith(expect.objectContaining({ expectedVersion: 7 }))
   })
 
+  it('flushes a clean-looking shared body and refuses its older reviewed preview after the version advances', async () => {
+    const version = ref(7)
+    const save = vi.fn(async () => {
+      version.value = 8
+      return true
+    })
+    const publishing = useEntryPublishing(
+      createDeps({ hydratedDraftVersion: version, handleSaveDraft: save }),
+    )
+    markReadyToPublish(publishing)
+    publishing.handlePublish()
+    await publishing.confirmPublish()
+    expect(save).toHaveBeenCalledOnce()
+    expect(mutationFns[0]).not.toHaveBeenCalled()
+    expect(publishing.publishSession.readiness.confirmationToken).toBeNull()
+  })
+
   it('shows archive impact per locale with the restore path and a non-destructive confirm', async () => {
     previewResult.value = {
       allowed: true,

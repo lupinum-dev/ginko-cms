@@ -8,10 +8,10 @@ import {
   type AuthoringKitSourceV1,
   type AuthoringKitV1,
   type EditorAssetRequest,
+  type EditorFile,
   type GinkoEditorHandle,
   type ImagePicker,
   type ImageUploadHandler,
-  type AssetInfo,
   GinkoEditor as RichtextEditor,
 } from '@lupinum/ginko-editor'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, toRaw, useId, watch } from 'vue'
@@ -19,6 +19,7 @@ import { computed, onBeforeUnmount, reactive, ref, shallowRef, toRaw, useId, wat
 import { api } from '../../../boundary/api'
 import { useOptionalStudioRichtextFlush } from '../../../composables/internal/studioRichtextFlush'
 import type { StudioAssetContext, StudioAssetRecord } from '../../../composables/internal/types'
+import { useSharedEntryBody } from '../../../composables/internal/useSharedEntryBody'
 import { useCmsI18n } from '../../../composables/useCmsI18n'
 import { useCmsStudioQuery } from '../../../composables/useCmsStudioQuery'
 import StudioAssetMetadataDialog from '../StudioAssetMetadataDialog.vue'
@@ -30,6 +31,7 @@ import type { FieldDefinition } from './useFieldCommon'
 
 const props = defineProps<{
   field: FieldDefinition
+  fieldPath?: string
   modelValue: unknown
   assetContext?: StudioAssetContext
   label: string
@@ -42,11 +44,34 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useCmsI18n()
+const shared = useSharedEntryBody(
+  computed(() =>
+    props.assetContext?.bodyField === props.field.key &&
+    (!props.fieldPath || props.fieldPath === props.field.key)
+      ? props.assetContext
+      : undefined,
+  ),
+  computed(() => props.disabled === true),
+)
+const sharedPreviewSource = ref('')
+watch(
+  shared.mountKey,
+  () => {
+    sharedPreviewSource.value = typeof props.modelValue === 'string' ? props.modelValue : ''
+  },
+  { immediate: true },
+)
 const value = computed({
-  get: () => (typeof props.modelValue === 'string' ? props.modelValue : ''),
+  get: () =>
+    shared.mode.value === 'shared'
+      ? sharedPreviewSource.value
+      : typeof props.modelValue === 'string'
+        ? props.modelValue
+        : '',
   set: (v: string) => {
     if (props.disabled) return
-    emit('update:modelValue', v)
+    if (shared.mode.value === 'shared') sharedPreviewSource.value = v
+    else emit('update:modelValue', v)
   },
 })
 
@@ -62,9 +87,22 @@ const authoringKit = shallowRef<AuthoringKitV1>()
 const editorRef = ref<GinkoEditorHandle | null>(null)
 const richtextFlush = useOptionalStudioRichtextFlush()
 const flushId = `${props.field.key}:${props.assetContext?.locale ?? ''}:${useId()}`
+watch(
+  [shared.mode, () => props.assetContext?.locale],
+  ([mode, locale]) => richtextFlush?.setSharedBody(flushId, mode === 'shared' ? locale : undefined),
+  { immediate: true },
+)
+watch(
+  shared.ready,
+  (ready) => {
+    richtextFlush?.setPending(flushId, !ready)
+  },
+  { immediate: true },
+)
+
 const authoringPending = ref(Boolean(props.assetContext?.authoringSource))
 let authoringRevision = 0
-let pendingFileRequest: EditorAssetRequest<Partial<AssetInfo>> | undefined
+let pendingFileRequest: EditorAssetRequest<EditorFile> | undefined
 // The picker already owns the URL. Make it available before TipTap paints a
 // newly inserted stable id, rather than waiting for the source query to catch up.
 const selectedAssetUrls = ref(new Map<string, string>())
@@ -171,10 +209,27 @@ watch(
   { immediate: true },
 )
 
-let unregisterEditor: (() => void) | undefined
-watch(editorRef, (handle) => {
-  unregisterEditor?.()
-  unregisterEditor = handle ? richtextFlush?.register(flushId, handle) : undefined
+const unregisterEditor = richtextFlush?.register(flushId, {
+  async flush() {
+    if (!shared.ready.value || !editorRef.value)
+      return {
+        ok: false,
+        error: {
+          code: 'collaboration_pending',
+          phase: 'validate',
+          recoverable: true,
+          message: shared.error.value || 'Wait for the body editor to open before continuing.',
+          traceId: 'cms-body',
+          issues: [],
+          timeline: [],
+        },
+      }
+    return editorRef.value.flush()
+  },
+  hasPendingChanges: () => !shared.ready.value || (editorRef.value?.hasPendingChanges() ?? false),
+  removeSelectedMedia: () => editorRef.value?.removeSelectedMedia() ?? false,
+  focus: (position) => editorRef.value?.focus(position),
+  getEditor: () => editorRef.value?.getEditor(),
 })
 onBeforeUnmount(() => unregisterEditor?.())
 
@@ -235,7 +290,7 @@ function setMetadataDialogOpen(open: boolean) {
   if (!open) metadataAssetId.value = null
 }
 
-function openFilePicker(request: EditorAssetRequest<Partial<AssetInfo>>) {
+function openFilePicker(request: EditorAssetRequest<EditorFile>) {
   if (props.disabled) return
   pendingFileRequest?.complete(null)
   pendingFileRequest = request
@@ -324,10 +379,12 @@ function onConversionRecovered() {
       "
     >
       <RichtextEditor
-        v-if="editorReady"
+        v-if="editorReady && shared.ready.value"
         :id="field.key"
+        :key="shared.mountKey.value"
         ref="editorRef"
         v-model="value"
+        :collaboration="shared.session.value"
         :asset-provider="assetProvider"
         :authoring-kit="authoringKit"
         :aria-label="label"
@@ -347,9 +404,47 @@ function onConversionRecovered() {
         @request-file="assetContext ? openFilePicker($event) : $event.complete(null)"
       />
       <div
+        v-else-if="shared.mode.value === 'error'"
+        role="alert"
+        class="ginko:rounded-lg ginko:border ginko:p-4 ginko:space-y-3"
+      >
+        <p>{{ shared.error.value }}</p>
+        <label v-if="shared.recoveryMarkdown.value" class="ginko:block ginko:space-y-2">
+          <span>Recovered Markdown for manual merge</span>
+          <textarea
+            readonly
+            :value="shared.recoveryMarkdown.value"
+            class="ginko:w-full ginko:min-h-40 ginko:rounded ginko:border ginko:p-2"
+          />
+        </label>
+        <Button variant="outline" size="sm" @click="shared.retry()">Retry</Button>
+        <Button
+          v-if="shared.recoverySource.value"
+          variant="outline"
+          size="sm"
+          @click="shared.keepRecoveryAndReopen()"
+        >
+          Download recovery and reopen
+        </Button>
+      </div>
+      <div
         v-else
+        role="status"
+        aria-label="Opening editor"
         class="ginko:min-h-[260px] ginko:rounded-xl ginko:border ginko:border-border/40 ginko:bg-card"
       />
+      <Button
+        v-if="
+          shared.state.value && ['stale', 'error', 'closed'].includes(shared.state.value.status)
+        "
+        variant="outline"
+        size="sm"
+        @click="shared.reopen()"
+      >
+        {{
+          shared.state.value.pendingSteps ? 'Download recovery and reopen' : 'Reopen shared body'
+        }}
+      </Button>
       <StudioAssetMetadataDialog
         v-if="assetContext && !disabled"
         :asset-id="metadataAssetId"

@@ -6,13 +6,22 @@ const studioRichtextFlushKey = Symbol('studio-richtext-flush')
 export function provideStudioRichtextFlush() {
   const handles = new Map<string, GinkoEditorHandle>()
   const pendingIds = ref(new Set<string>())
+  const sharedBodies = ref(new Map<string, string>())
 
   const registry = {
+    sharedBodyLocales: computed(() => new Set(sharedBodies.value.values())),
+    setSharedBody(id: string, locale: string | undefined) {
+      const next = new Map(sharedBodies.value)
+      if (locale) next.set(id, locale)
+      else next.delete(id)
+      sharedBodies.value = next
+    },
     hasPending: computed(() => pendingIds.value.size > 0),
     register(id: string, handle: GinkoEditorHandle) {
       handles.set(id, handle)
       return () => {
         handles.delete(id)
+        registry.setSharedBody(id, undefined)
         const next = new Set(pendingIds.value)
         next.delete(id)
         pendingIds.value = next

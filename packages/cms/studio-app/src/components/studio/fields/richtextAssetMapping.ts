@@ -1,4 +1,4 @@
-import type { AssetInfo } from '@lupinum/ginko-editor'
+import type { AssetInfo, EditorFile } from '@lupinum/ginko-editor'
 
 import type { StudioAssetRecord } from '../../../composables/internal/types'
 
@@ -35,10 +35,7 @@ export function mapStudioAssetToImageInfo(
   }
 }
 
-export function mapStudioAssetToFileInfo(
-  asset: StudioAssetRecord,
-  locale?: string,
-): Partial<AssetInfo> {
+export function mapStudioAssetToFileInfo(asset: StudioAssetRecord, locale?: string): EditorFile {
   return {
     filename: asset.filename,
     id: asset._id,

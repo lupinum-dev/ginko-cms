@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { effectScope, reactive, ref } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { effectScope, nextTick, reactive, ref } from 'vue'
 
 import { useStudioEntryWorkflow } from '../../packages/cms/studio-app/src/composables/internal/useStudioEntryWorkflow'
 
@@ -116,6 +116,7 @@ function editorFixture() {
 }
 
 describe('Studio publish preview state', () => {
+  beforeEach(() => vi.clearAllMocks())
   it('retires the old preview synchronously before pending work and installs only the new result', async () => {
     let resolveReadiness!: (value: ReturnType<typeof readinessDetail>) => void
     mocks.query.mockReturnValueOnce(
@@ -136,13 +137,14 @@ describe('Studio publish preview state', () => {
     const scope = effectScope()
     const workflow = scope.run(() => useStudioEntryWorkflow(editor as never))!
 
-    const request = workflow.previewPublishImpact('en', { saveDraft: false })
+    const request = workflow.previewPublishImpact('en')
 
     expect(editor.publishing.publishSession.preview).toBeNull()
     expect(editor.publishing.publishSession.readiness.state).toBe('pending')
     expect(workflow.publishImpact).toMatchObject({ state: 'pending', pending: true })
     expect(JSON.stringify(workflow.publishImpact)).not.toContain('OLD PREVIEW MUST DISAPPEAR')
-
+    expect(editor.draft.handleSaveDraft).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(mocks.query).toHaveBeenCalled())
     resolveReadiness(readinessDetail())
     await request
 
@@ -150,4 +152,34 @@ describe('Studio publish preview state', () => {
     expect(editor.publishing.publishSession.readiness.state).toBe('ready')
     scope.stop()
   })
+
+  it.each(['version', 'pending-body', 'entry'] as const)(
+    'does not install a preview completed after the %s changed',
+    async (change) => {
+      mocks.query.mockResolvedValueOnce(readinessDetail())
+      let resolvePreview!: (value: unknown) => void
+      mocks.previewPublish.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolvePreview = resolve
+        }),
+      )
+      const editor = editorFixture()
+      const scope = effectScope()
+      const workflow = scope.run(() => useStudioEntryWorkflow(editor as never))!
+      try {
+        const request = workflow.previewPublishImpact('en')
+        await vi.waitFor(() => expect(mocks.previewPublish).toHaveBeenCalled())
+        if (change === 'version') editor.draft.lastHydratedVersion++
+        if (change === 'pending-body') editor.draft.isDirty = true
+        if (change === 'entry') editor.loader.entryId = 'entry-two'
+        await nextTick()
+        resolvePreview({ allowed: true, confirmation: { token: 'obsolete-token' } })
+        await request
+        expect(editor.publishing.publishSession.preview).toBeNull()
+        expect(editor.publishing.markPublishReadinessStale).toHaveBeenCalled()
+      } finally {
+        scope.stop()
+      }
+    },
+  )
 })

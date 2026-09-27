@@ -1,3 +1,4 @@
+import { getCollectionBodyField } from '@lupinum/ginko-cms-contract/shared/fields'
 import { getCmsErrorMessage } from '@public/utils/cmsErrors'
 import type { Ref } from 'vue'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
@@ -81,7 +82,14 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
     ...secondaryDataFields,
   }))
 
+  const bodyField = computed(() =>
+    getCollectionBodyField({
+      settings: collectionConfig.value?.settings,
+      fields: collectionConfig.value?.fields ?? localizedFields.value,
+    }),
+  )
   const secondaryAssetContext = computed(() => ({
+    bodyField: bodyField.value,
     authoringSource: getStudioAuthoringSource(collection.value, collectionConfig.value),
     collection: collection.value,
     locale: secondaryLocale.value,
@@ -138,7 +146,7 @@ export function useEntryLocales(deps: EntryLocalesDeps) {
       const data = (value.data ?? {}) as Record<string, unknown>
       for (const field of localizedFields.value) {
         secondaryDataFields[field.key] =
-          field.type === 'richtext'
+          field.key === bodyField.value
             ? (value.localeData?.draft.bodyMdc ?? '')
             : (data[field.key] ?? '')
       }
