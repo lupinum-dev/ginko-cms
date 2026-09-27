@@ -1431,6 +1431,9 @@ const de = {
           'Aktualisiere die von Redakteuren genutzten Bildtexte. Live-Seiten behalten ihre aktuellen Bilddetails, bis sie erneut veröffentlicht werden.',
       },
       assetBrowser: {
+        selectAllVisible: 'Alle sichtbaren Medien auswählen',
+        selectAsset: '{filename} auswählen',
+        openAsset: 'Details für {filename} öffnen',
         title: 'Medien',
         pickerHint: 'Wähle ein Medium aus oder lade eines hoch, ohne diesen Eintrag zu verlassen.',
         navAriaLabel: 'Navigation der Medienbibliothek',

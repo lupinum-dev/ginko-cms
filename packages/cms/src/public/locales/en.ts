@@ -1390,6 +1390,9 @@ const en = {
           'Update image text used by editors. Live pages keep their current image details until they are published again.',
       },
       assetBrowser: {
+        selectAllVisible: 'Select all visible assets',
+        selectAsset: 'Select {filename}',
+        openAsset: 'Open details for {filename}',
         title: 'Media',
         pickerHint: 'Choose or upload an asset without leaving this entry.',
         navAriaLabel: 'Asset library navigation',
