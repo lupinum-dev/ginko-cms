@@ -50,6 +50,46 @@ async function createAndClaim(
 }
 
 describe('canonical asset upload sessions', () => {
+  it('keeps storage capabilities out of Studio metadata and resolves delivery only for current members', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const { user, session } = await createAndClaim(ctx, 'owner-1')
+    const assetId = await user.action(api.assets.finalizeAssetUploadSession, {
+      sessionId: session.sessionId,
+      token: session.token,
+      filename: 'private.png',
+      scope: 'global',
+    })
+    const url = `/api/_ginko/assets/${encodeURIComponent(assetId)}`
+    expect(await user.query(api.assets.getAsset, { assetId })).toMatchObject({
+      url,
+      thumbnailUrl: url,
+    })
+    expect(await user.query(api.assets.resolveAssetUrls, { assetIds: [assetId] })).toEqual({
+      [assetId]: url,
+    })
+    const now = Date.now()
+    const memberId = await ctx.seed('members', {
+      userId: 'viewer-2',
+      role: 'viewer',
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: 'owner-1',
+    })
+    const viewer = ctx.asCmsUser('viewer-2')
+    expect(await viewer.query(api.assets.getAssetDeliveryDescriptor, { assetId })).toMatchObject({
+      mimeType: 'image/png',
+      bytes: validPng.length,
+    })
+    await expect(
+      ctx.asCmsUser('nonmember').query(api.assets.getAssetDeliveryDescriptor, { assetId }),
+    ).rejects.toThrow()
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.delete(memberId)
+    })
+    await expect(viewer.query(api.assets.getAssetDeliveryDescriptor, { assetId })).rejects.toThrow()
+  })
+
   it('replays the same upload claim without advancing its generation', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)

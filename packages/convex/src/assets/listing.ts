@@ -7,6 +7,7 @@ import { throwCmsError } from '../errors.js'
 import { toOptionalStringId, toStringId } from '../lib/ids.js'
 import type { QueryOrMutationCtx } from '../lib/types.js'
 import { hashValue } from '../operationHelpers.js'
+import { privateAssetUrl } from './deliveryUrl.js'
 import {
   assetOwnerPathFromMeta,
   loadAssetCollectionMetadata,
@@ -77,7 +78,8 @@ async function mapAssetManagerAsset(
   const entryId = toOptionalStringId(asset.entryId)
   const collectionMeta = collection ? ownerMetadata.collectionBySlug.get(collection) : null
   const entryMeta = entryId ? ownerMetadata.entryById.get(entryId) : null
-  const url = await ctx.storage.getUrl(asset.storageId)
+  const available = await ctx.storage.getUrl(asset.storageId)
+  const url = available ? privateAssetUrl(toStringId(asset._id)) : null
   return {
     id: toStringId(asset._id),
     filename: asset.filename,

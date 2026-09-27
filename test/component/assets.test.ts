@@ -369,7 +369,7 @@ describe('asset management', () => {
       assetIds: [activeAssetId, deletedAssetId, 'not-an-id'],
     })
 
-    expect(urls[activeAssetId]).toMatch(/^https?:\/\//)
+    expect(urls[activeAssetId]).toBe(`/api/_ginko/assets/${activeAssetId}`)
     expect(urls[deletedAssetId]).toBeNull()
     expect(urls['not-an-id']).toBeNull()
   })
