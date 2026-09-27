@@ -1,4 +1,8 @@
 import {
+  openSharedBody as openSharedBodyArgs,
+  getSharedBodyHead as getSharedBodyHeadArgs,
+  pullSharedBody as pullSharedBodyArgs,
+  pushSharedBody as pushSharedBodyArgs,
   getTranslationReview as getTranslationReviewArgs,
   setTranslationSource as setTranslationSourceArgs,
   acknowledgeTranslationReview as acknowledgeTranslationReviewArgs,
@@ -390,5 +394,41 @@ export const acknowledgeTranslationReview = mutation({
     await ctx.runMutation(
       components.ginkoCms.editor.acknowledgeTranslationReview,
       bindExpectedCmsContract(args),
+    ),
+})
+
+export const openSharedBody = mutation({
+  args: openSharedBodyArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.editor.openSharedBody,
+      await bindCmsCaller(ctx, bindExpectedCmsContract(args)),
+    ),
+})
+
+export const getSharedBodyHead = query({
+  args: getSharedBodyHeadArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(
+      components.ginkoCms.editor.getSharedBodyHead,
+      await bindCmsCaller(ctx, args),
+    ),
+})
+
+export const pullSharedBody = query({
+  args: pullSharedBodyArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runQuery(
+      components.ginkoCms.editor.pullSharedBody,
+      await bindCmsCaller(ctx, args),
+    ),
+})
+
+export const pushSharedBody = mutation({
+  args: pushSharedBodyArgs.args,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(
+      components.ginkoCms.editor.pushSharedBody,
+      await bindCmsCaller(ctx, bindExpectedCmsContract(args)),
     ),
 })

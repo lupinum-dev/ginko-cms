@@ -90,6 +90,10 @@ export const studioApiSurface = {
     explainPublicVisibility: 'query',
   },
   editor: {
+    openSharedBody: 'mutation',
+    getSharedBodyHead: 'query',
+    pullSharedBody: 'query',
+    pushSharedBody: 'mutation',
     archiveEntry: {
       kind: 'mutation',
       component: 'archiveEntryOperationExecute',

@@ -1,4 +1,7 @@
-import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import {
+  contentContractValidator,
+  jsonObjectValidator,
+} from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
 import { components } from '../_generated/api.js'
@@ -6,7 +9,7 @@ import { internalMutation, internalQuery, query } from '../_generated/server.js'
 import { bindCmsCaller } from './caller.js'
 
 const contractArgs = {
-  content: jsonObjectValidator,
+  content: contentContractValidator,
   contentHash: v.string(),
   presentation: jsonObjectValidator,
   presentationHash: v.string(),

@@ -51,6 +51,9 @@ import type * as entries_activityPresentation from "../entries/activityPresentat
 import type * as entries_activityRows from "../entries/activityRows.js";
 import type * as entries_assetReferenceProof from "../entries/assetReferenceProof.js";
 import type * as entries_bodyAstStorage from "../entries/bodyAstStorage.js";
+import type * as entries_collaboration from "../entries/collaboration.js";
+import type * as entries_collaborationCleanup from "../entries/collaborationCleanup.js";
+import type * as entries_collaborationState from "../entries/collaborationState.js";
 import type * as entries_context from "../entries/context.js";
 import type * as entries_destructivePreview from "../entries/destructivePreview.js";
 import type * as entries_draft from "../entries/draft.js";
@@ -247,6 +250,9 @@ const fullApi: ApiFromModules<{
   "entries/activityRows": typeof entries_activityRows;
   "entries/assetReferenceProof": typeof entries_assetReferenceProof;
   "entries/bodyAstStorage": typeof entries_bodyAstStorage;
+  "entries/collaboration": typeof entries_collaboration;
+  "entries/collaborationCleanup": typeof entries_collaborationCleanup;
+  "entries/collaborationState": typeof entries_collaborationState;
   "entries/context": typeof entries_context;
   "entries/destructivePreview": typeof entries_destructivePreview;
   "entries/draft": typeof entries_draft;

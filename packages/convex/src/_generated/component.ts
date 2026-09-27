@@ -2692,10 +2692,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         {
-          content: Record<
-            string,
-            _GinkoCmsJsonDepth8
-          >;
+          content: Record<string, any>;
           contentHash: string;
           presentation: Record<
             string,
@@ -2705,23 +2702,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         {
           contentMatches: boolean;
-          drift: Array<{
-            expected?:
-              _GinkoCmsJsonDepth8;
-            installed?:
-              _GinkoCmsJsonDepth8;
-            path: string;
-          }>;
+          drift: Array<{ expected?: any; installed?: any; path: string }>;
           expectedContentHash: string;
           expectedPresentationHash: string;
           installedContentHash: string | null;
           installedPresentationHash: string | null;
           matches: boolean;
           presentationDrift: Array<{
-            expected?:
-              _GinkoCmsJsonDepth8;
-            installed?:
-              _GinkoCmsJsonDepth8;
+            expected?: any;
+            installed?: any;
             path: string;
           }>;
           presentationMatches: boolean;
@@ -2766,10 +2755,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
-          content: Record<
-            string,
-            _GinkoCmsJsonDepth8
-          >;
+          content: Record<string, any>;
           contentHash: string;
           presentation: Record<
             string,
@@ -2829,10 +2815,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           actor: string;
           runKey: string;
-          targetContent: Record<
-            string,
-            _GinkoCmsJsonDepth8
-          >;
+          targetContent: Record<string, any>;
           targetContentHash: string;
           targetPresentation: Record<
             string,
@@ -4817,6 +4800,19 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         Name
       >;
+      getSharedBodyHead: FunctionReference<
+        "query",
+        "internal",
+        { entryId: string; locale: string },
+        {
+          epoch: string;
+          policyRevision: string;
+          protocolVersion?: 1;
+          schemaRevision: string;
+          version: number;
+        },
+        Name
+      >;
       getStudioOverview: FunctionReference<
         "query",
         "internal",
@@ -5559,6 +5555,30 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { dirtyLocales: Array<string>; draftVersion: number },
         Name
       >;
+      openSharedBody: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          _expectedContentHash?: string;
+          _expectedPresentationHash?: string;
+          entryId: string;
+          locale: string;
+        },
+        | { available: false; reason: "policy" | "source" }
+        | {
+            available: true;
+            clientPrefix: string;
+            snapshot: {
+              document: string;
+              epoch: string;
+              policyRevision: string;
+              protocolVersion?: 1;
+              schemaRevision: string;
+              version: number;
+            };
+          },
+        Name
+      >;
       permanentlyDeleteEntryOperationExecute: FunctionReference<
         "mutation",
         "internal",
@@ -6015,6 +6035,86 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         | { code: string; details: any; message: string; status: "stale" },
         Name
       >;
+      pullSharedBody: FunctionReference<
+        "query",
+        "internal",
+        {
+          entryId: string;
+          epoch: string;
+          locale: string;
+          policyRevision: string;
+          protocolVersion?: 1;
+          schemaRevision: string;
+          version: number;
+        },
+        | {
+            status: "ok";
+            update: {
+              clientIds: Array<string>;
+              epoch: string;
+              fromVersion: number;
+              policyRevision: string;
+              protocolVersion?: 1;
+              schemaRevision: string;
+              steps: Array<string>;
+              version: number;
+            };
+          }
+        | {
+            head: {
+              epoch: string;
+              policyRevision: string;
+              protocolVersion?: 1;
+              schemaRevision: string;
+              version: number;
+            };
+            reason: "epoch" | "schema" | "policy" | "history";
+            status: "stale";
+          },
+        Name
+      >;
+      pushSharedBody: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          _expectedContentHash?: string;
+          _expectedPresentationHash?: string;
+          clientId: string;
+          entryId: string;
+          epoch: string;
+          locale: string;
+          policyRevision: string;
+          protocolVersion?: 1;
+          schemaRevision: string;
+          steps: Array<string>;
+          version: number;
+        },
+        | {
+            status: "ok";
+            update: {
+              clientIds: Array<string>;
+              epoch: string;
+              fromVersion: number;
+              policyRevision: string;
+              protocolVersion?: 1;
+              schemaRevision: string;
+              steps: Array<string>;
+              version: number;
+            };
+          }
+        | {
+            head: {
+              epoch: string;
+              policyRevision: string;
+              protocolVersion?: 1;
+              schemaRevision: string;
+              version: number;
+            };
+            reason: "epoch" | "schema" | "policy" | "history";
+            status: "stale";
+          },
+        Name
+      >;
       reorderEntryOperationExecute: FunctionReference<
         "mutation",
         "internal",
@@ -6345,6 +6445,125 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               outcome: "applied" | "failed" | "blocked" | "stale";
             }>;
           },
+          Name
+        >;
+      };
+      collaboration: {
+        getSharedBodyHead: FunctionReference<
+          "query",
+          "internal",
+          { entryId: string; locale: string },
+          {
+            epoch: string;
+            policyRevision: string;
+            protocolVersion?: 1;
+            schemaRevision: string;
+            version: number;
+          },
+          Name
+        >;
+        openSharedBody: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            _expectedContentHash?: string;
+            _expectedPresentationHash?: string;
+            entryId: string;
+            locale: string;
+          },
+          | { available: false; reason: "policy" | "source" }
+          | {
+              available: true;
+              clientPrefix: string;
+              snapshot: {
+                document: string;
+                epoch: string;
+                policyRevision: string;
+                protocolVersion?: 1;
+                schemaRevision: string;
+                version: number;
+              };
+            },
+          Name
+        >;
+        pullSharedBody: FunctionReference<
+          "query",
+          "internal",
+          {
+            entryId: string;
+            epoch: string;
+            locale: string;
+            policyRevision: string;
+            protocolVersion?: 1;
+            schemaRevision: string;
+            version: number;
+          },
+          | {
+              status: "ok";
+              update: {
+                clientIds: Array<string>;
+                epoch: string;
+                fromVersion: number;
+                policyRevision: string;
+                protocolVersion?: 1;
+                schemaRevision: string;
+                steps: Array<string>;
+                version: number;
+              };
+            }
+          | {
+              head: {
+                epoch: string;
+                policyRevision: string;
+                protocolVersion?: 1;
+                schemaRevision: string;
+                version: number;
+              };
+              reason: "epoch" | "schema" | "policy" | "history";
+              status: "stale";
+            },
+          Name
+        >;
+        pushSharedBody: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            _expectedContentHash?: string;
+            _expectedPresentationHash?: string;
+            clientId: string;
+            entryId: string;
+            epoch: string;
+            locale: string;
+            policyRevision: string;
+            protocolVersion?: 1;
+            schemaRevision: string;
+            steps: Array<string>;
+            version: number;
+          },
+          | {
+              status: "ok";
+              update: {
+                clientIds: Array<string>;
+                epoch: string;
+                fromVersion: number;
+                policyRevision: string;
+                protocolVersion?: 1;
+                schemaRevision: string;
+                steps: Array<string>;
+                version: number;
+              };
+            }
+          | {
+              head: {
+                epoch: string;
+                policyRevision: string;
+                protocolVersion?: 1;
+                schemaRevision: string;
+                version: number;
+              };
+              reason: "epoch" | "schema" | "policy" | "history";
+              status: "stale";
+            },
           Name
         >;
       };

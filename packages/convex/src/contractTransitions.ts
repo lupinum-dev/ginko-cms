@@ -1,4 +1,7 @@
-import { jsonObjectValidator } from '@lupinum/ginko-cms-contract/convex/validators.js'
+import {
+  contentContractValidator,
+  jsonObjectValidator,
+} from '@lupinum/ginko-cms-contract/convex/validators.js'
 import { v } from 'convex/values'
 
 import {
@@ -28,7 +31,7 @@ import { mutation, query } from './functions.js'
 export const beginContractTransition = mutation({
   args: {
     runKey: v.string(),
-    targetContent: jsonObjectValidator,
+    targetContent: contentContractValidator,
     targetContentHash: v.string(),
     targetPresentation: jsonObjectValidator,
     targetPresentationHash: v.string(),

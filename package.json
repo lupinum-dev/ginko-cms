@@ -63,7 +63,7 @@
     "@edge-runtime/vm": "^5.0.0",
     "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
     "@lupinum/better-convex-vue": "1.0.0-beta.5",
-    "@lupinum/ginko-content": "1.0.0-beta.9",
+    "@lupinum/ginko-content": "1.0.0-beta.10",
     "@lupinum/ginko-editor": "0.1.0",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/kit": "4.5.2",

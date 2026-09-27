@@ -49,6 +49,15 @@ export const cmsRoleValidator = v.union(
 
 export const jsonValueValidator = createJsonValueValidator(CMS_JSON_MAX_DEPTH)
 
+// Content validates the full contract at install/check/transition boundaries.
+// Its nested V2 property rules exceed the generic CMS value depth; expanding
+// recursive JSON unions here also duplicates megabytes in generated API types.
+export const contentContractValidator = v.record(v.string(), v.any()) as Validator<
+  JsonObject,
+  'required',
+  string
+>
+
 export const jsonObjectValidator = v.record(v.string(), jsonValueValidator) as Validator<
   JsonObject,
   'required',

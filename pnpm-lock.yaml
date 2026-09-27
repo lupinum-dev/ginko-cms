@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@lupinum/ginko-content': file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz
+  '@lupinum/ginko-content': file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz
   '@lupinum/ginko-editor': file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz
 
 importers:
@@ -25,11 +25,11 @@ importers:
         specifier: 1.0.0-beta.5
         version: 1.0.0-beta.5(convex@1.42.2)(vue@3.5.42(typescript@5.9.3))
       '@lupinum/ginko-content':
-        specifier: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz
-        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd)
+        specifier: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz
+        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd)
       '@lupinum/ginko-editor':
         specifier: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz
-        version: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(dafb155490b4b37db0b2e8f871191c8f)
+        version: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd))(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/extensions@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/vue-3@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3)))(vue@3.5.42(typescript@5.9.3))
       '@nuxt/eslint-config':
         specifier: ^1.15.2
         version: 1.17.0(@typescript-eslint/utils@8.66.0(eslint@10.8.1(jiti@2.7.0))(typescript@5.9.3))(@vue/compiler-sfc@3.5.41)(eslint@10.8.1(jiti@2.7.0))(typescript@5.9.3)
@@ -142,8 +142,8 @@ importers:
         specifier: workspace:0.2.0-rc.3
         version: link:../convex
       '@lupinum/ginko-content':
-        specifier: file:../../.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz
-        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(1ee5907a768dda93c89823c734eb35b3)
+        specifier: file:../../.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz
+        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(1ee5907a768dda93c89823c734eb35b3)
       '@nuxt/kit':
         specifier: 4.5.2
         version: 4.5.2(magic-string@0.30.21)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -192,7 +192,7 @@ importers:
     devDependencies:
       '@lupinum/ginko-editor':
         specifier: file:../../.pack/upstream/lupinum-ginko-editor-0.1.0.tgz
-        version: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(d7ccfd88e2b6a7408f0e3a16cf70654b)
+        version: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(1ee5907a768dda93c89823c734eb35b3))(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/extensions@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/vue-3@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3)))(vue@3.5.42(typescript@5.9.3))
       '@tiptap/core':
         specifier: 3.31.3
         version: 3.31.3(@tiptap/pm@3.31.3)
@@ -263,8 +263,11 @@ importers:
         specifier: workspace:0.2.0-rc.3
         version: link:../contract
       '@lupinum/ginko-content':
-        specifier: file:../../.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz
-        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(5a5394ddf8839455dfde9f14fddd58a1)
+        specifier: file:../../.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz
+        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5a5394ddf8839455dfde9f14fddd58a1)
+      '@lupinum/ginko-editor':
+        specifier: file:../../.pack/upstream/lupinum-ginko-editor-0.1.0.tgz
+        version: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5a5394ddf8839455dfde9f14fddd58a1))(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/extensions@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/vue-3@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3)))(vue@3.5.42(typescript@5.9.3))
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
@@ -296,8 +299,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/convex
       '@lupinum/ginko-content':
-        specifier: file:../.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz
-        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(5a5394ddf8839455dfde9f14fddd58a1)
+        specifier: file:../.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz
+        version: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5a5394ddf8839455dfde9f14fddd58a1)
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
@@ -1401,9 +1404,9 @@ packages:
       convex: '>=1.42.2 <2'
       vue: '>=3.5.0 <4'
 
-  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz':
-    resolution: {integrity: sha512-jCgh2NMaQs0Nmv7aAf61AAHfltPw/CFSxp+aq+t2iPxeGnihO5jan21dYQffdK7cgYWI4phJ5hu7qocYRlP7gg==, tarball: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz}
-    version: 1.0.0-beta.9
+  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz':
+    resolution: {integrity: sha512-iAhKBrmWpY+LvxEcz23J4dwYOQREKFPtN18AZ1O6hx6DXP7lEONAPsVRwHxk6eTN+SLM+qiEfK1J+1oexQwW4A==, tarball: file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz}
+    version: 1.0.0-beta.10
     engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
@@ -1424,14 +1427,20 @@ packages:
         optional: true
 
   '@lupinum/ginko-editor@file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz':
-    resolution: {integrity: sha512-Irc/ltdH3xWL5iAsgrg7OL7zrF02RfmoFyC3VglBM5uM2HU/Y/76PyRATs+YJtgvYSGMei/5CfRShRTCZSPxoA==, tarball: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz}
+    resolution: {integrity: sha512-bPwzODojY6YBY5qPDaJn30oJpwwKxw4QJP5OO/HbGF1lrpDGVbGY418lZEj4n+qFuHC9MJrovmUUzH7Fb+1uqw==, tarball: file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz}
     version: 0.1.0
-    engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
+    engines: {node: '>=22.18.0'}
     peerDependencies:
-      '@tiptap/core': 3.31.3
-      '@tiptap/pm': 3.31.3
-      '@tiptap/vue-3': 3.31.3
+      '@lupinum/ginko-content': '>=1.0.0-beta.10 <2'
+      '@tiptap/core': ^3.31.3
+      '@tiptap/pm': ^3.31.3
+      '@tiptap/vue-3': ^3.31.3
       vue: ^3.5.40
+    peerDependenciesMeta:
+      '@tiptap/vue-3':
+        optional: true
+      vue:
+        optional: true
 
   '@mapbox/node-pre-gyp@2.0.3':
     resolution: {integrity: sha512-uwPAhccfFJlsfCxMYTwOdVfOz3xqyj8xYL3zJj8f0pb30tLohnnFPhLuqp4/qoEz8sNxe4SESZedcBojRefIzg==}
@@ -5535,6 +5544,9 @@ packages:
   prosemirror-changeset@2.4.1:
     resolution: {integrity: sha512-96WBLhOaYhJ+kPhLg3uW359Tz6I/MfcrQfL4EGv4SrcqKEMC1gmoGrXHecPE8eOwTVCJ4IwgfzM8fFad25wNfw==}
 
+  prosemirror-collab@1.3.1:
+    resolution: {integrity: sha512-4SnynYR9TTYaQVXd/ieUvsVV4PDMBzrq2xPUWutHivDuOshZXqQ5rGbZM84HEaXKbLdItse7weMGOUdDVcLKEQ==}
+
   prosemirror-commands@1.7.2:
     resolution: {integrity: sha512-q6Q6szxqdu9Xd6EcdKsqXghu5nQdZTpB4Q9yd04WRc7/jt763e/rT60Owh0L1GYY+T46o5rD+9lEN36dZS43tw==}
 
@@ -7739,7 +7751,7 @@ snapshots:
       ohash: 2.0.11
       vue: 3.5.42(typescript@5.9.3)
 
-  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(1ee5907a768dda93c89823c734eb35b3)':
+  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(1ee5907a768dda93c89823c734eb35b3)':
     dependencies:
       '@comark/vue': 0.6.2(shiki@4.4.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@0.30.21)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -7821,7 +7833,7 @@ snapshots:
       - webpack
       - xml2js
 
-  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(5a5394ddf8839455dfde9f14fddd58a1)':
+  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5a5394ddf8839455dfde9f14fddd58a1)':
     dependencies:
       '@comark/vue': 0.6.2(shiki@4.4.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -7903,7 +7915,7 @@ snapshots:
       - webpack
       - xml2js
 
-  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd)':
+  '@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd)':
     dependencies:
       '@comark/vue': 0.6.2(shiki@4.4.2)(vue@3.5.42(typescript@5.9.3))
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(rolldown@1.2.5)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.5)(rollup@4.62.4)(vite@8.1.5(@types/node@25.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(yaml@2.9.0)))
@@ -7985,10 +7997,10 @@ snapshots:
       - webpack
       - xml2js
 
-  '@lupinum/ginko-editor@file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(d7ccfd88e2b6a7408f0e3a16cf70654b)':
+  '@lupinum/ginko-editor@file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(1ee5907a768dda93c89823c734eb35b3))(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/extensions@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/vue-3@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3)))(vue@3.5.42(typescript@5.9.3))':
     dependencies:
       '@lucide/vue': 1.24.0(vue@3.5.42(typescript@5.9.3))
-      '@lupinum/ginko-content': file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(1ee5907a768dda93c89823c734eb35b3)
+      '@lupinum/ginko-content': file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(1ee5907a768dda93c89823c734eb35b3)
       '@tiptap/core': 3.31.3(@tiptap/pm@3.31.3)
       '@tiptap/extension-code-block': 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
       '@tiptap/extension-heading': 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
@@ -7999,73 +8011,19 @@ snapshots:
       '@tiptap/extension-table-row': 3.31.3(@tiptap/extension-table@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))
       '@tiptap/pm': 3.31.3
       '@tiptap/starter-kit': 3.31.3
-      '@tiptap/vue-3': 3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3))
-      github-slugger: 2.0.0
+      prosemirror-collab: 1.3.1
       reka-ui: 2.10.1(vue@3.5.42(typescript@5.9.3))
+    optionalDependencies:
+      '@tiptap/vue-3': 3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3))
       vue: 3.5.42(typescript@5.9.3)
     transitivePeerDependencies:
-      - '@azure/app-configuration'
-      - '@azure/cosmos'
-      - '@azure/data-tables'
-      - '@azure/identity'
-      - '@azure/keyvault-secrets'
-      - '@azure/storage-blob'
-      - '@capacitor/preferences'
-      - '@deno/kv'
-      - '@electric-sql/pglite'
-      - '@farmfe/core'
-      - '@libsql/client'
-      - '@netlify/blobs'
-      - '@parcel/watcher'
-      - '@pinia/colada'
-      - '@planetscale/database'
-      - '@rspack/core'
       - '@tiptap/extensions'
-      - '@upstash/redis'
-      - '@vercel/blob'
-      - '@vercel/functions'
-      - '@vercel/kv'
-      - '@vue/compiler-sfc'
       - '@vue/composition-api'
-      - aws4fetch
-      - bare-abort-controller
-      - bare-buffer
-      - beautiful-mermaid
-      - better-sqlite3
-      - bun-types-no-globals
-      - db0
-      - drizzle-orm
-      - encoding
-      - esbuild
-      - idb-keyval
-      - ioredis
-      - katex
-      - magic-string
-      - magicast
-      - mysql2
-      - nuxt
-      - oxc-parser
-      - pagefind
-      - pinia
-      - rangi
-      - react-native-b4a
-      - rolldown
-      - rollup
-      - sqlite3
-      - srvx
-      - supports-color
-      - unloader
-      - unplugin
-      - uploadthing
-      - vite
-      - vitest
-      - webpack
-      - xml2js
 
-  '@lupinum/ginko-editor@file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(dafb155490b4b37db0b2e8f871191c8f)':
+  '@lupinum/ginko-editor@file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5a5394ddf8839455dfde9f14fddd58a1))(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/extensions@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/vue-3@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3)))(vue@3.5.42(typescript@5.9.3))':
     dependencies:
       '@lucide/vue': 1.24.0(vue@3.5.42(typescript@5.9.3))
-      '@lupinum/ginko-content': file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd)
+      '@lupinum/ginko-content': file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5a5394ddf8839455dfde9f14fddd58a1)
       '@tiptap/core': 3.31.3(@tiptap/pm@3.31.3)
       '@tiptap/extension-code-block': 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
       '@tiptap/extension-heading': 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
@@ -8076,68 +8034,37 @@ snapshots:
       '@tiptap/extension-table-row': 3.31.3(@tiptap/extension-table@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))
       '@tiptap/pm': 3.31.3
       '@tiptap/starter-kit': 3.31.3
-      '@tiptap/vue-3': 3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3))
-      github-slugger: 2.0.0
+      prosemirror-collab: 1.3.1
       reka-ui: 2.10.1(vue@3.5.42(typescript@5.9.3))
+    optionalDependencies:
+      '@tiptap/vue-3': 3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3))
       vue: 3.5.42(typescript@5.9.3)
     transitivePeerDependencies:
-      - '@azure/app-configuration'
-      - '@azure/cosmos'
-      - '@azure/data-tables'
-      - '@azure/identity'
-      - '@azure/keyvault-secrets'
-      - '@azure/storage-blob'
-      - '@capacitor/preferences'
-      - '@deno/kv'
-      - '@electric-sql/pglite'
-      - '@farmfe/core'
-      - '@libsql/client'
-      - '@netlify/blobs'
-      - '@parcel/watcher'
-      - '@pinia/colada'
-      - '@planetscale/database'
-      - '@rspack/core'
       - '@tiptap/extensions'
-      - '@upstash/redis'
-      - '@vercel/blob'
-      - '@vercel/functions'
-      - '@vercel/kv'
-      - '@vue/compiler-sfc'
       - '@vue/composition-api'
-      - aws4fetch
-      - bare-abort-controller
-      - bare-buffer
-      - beautiful-mermaid
-      - better-sqlite3
-      - bun-types-no-globals
-      - db0
-      - drizzle-orm
-      - encoding
-      - esbuild
-      - idb-keyval
-      - ioredis
-      - katex
-      - magic-string
-      - magicast
-      - mysql2
-      - nuxt
-      - oxc-parser
-      - pagefind
-      - pinia
-      - rangi
-      - react-native-b4a
-      - rolldown
-      - rollup
-      - sqlite3
-      - srvx
-      - supports-color
-      - unloader
-      - unplugin
-      - uploadthing
-      - vite
-      - vitest
-      - webpack
-      - xml2js
+
+  '@lupinum/ginko-editor@file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz(@lupinum/ginko-content@file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd))(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/extensions@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(@tiptap/vue-3@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3)))(vue@3.5.42(typescript@5.9.3))':
+    dependencies:
+      '@lucide/vue': 1.24.0(vue@3.5.42(typescript@5.9.3))
+      '@lupinum/ginko-content': file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz(5f58d1a1e8e8fb0c9d5f238a7ad579cd)
+      '@tiptap/core': 3.31.3(@tiptap/pm@3.31.3)
+      '@tiptap/extension-code-block': 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
+      '@tiptap/extension-heading': 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
+      '@tiptap/extension-placeholder': 3.31.3(@tiptap/extensions@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))
+      '@tiptap/extension-table': 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
+      '@tiptap/extension-table-cell': 3.31.3(@tiptap/extension-table@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))
+      '@tiptap/extension-table-header': 3.31.3(@tiptap/extension-table@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))
+      '@tiptap/extension-table-row': 3.31.3(@tiptap/extension-table@3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))
+      '@tiptap/pm': 3.31.3
+      '@tiptap/starter-kit': 3.31.3
+      prosemirror-collab: 1.3.1
+      reka-ui: 2.10.1(vue@3.5.42(typescript@5.9.3))
+    optionalDependencies:
+      '@tiptap/vue-3': 3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)(vue@3.5.42(typescript@5.9.3))
+      vue: 3.5.42(typescript@5.9.3)
+    transitivePeerDependencies:
+      - '@tiptap/extensions'
+      - '@vue/composition-api'
 
   '@mapbox/node-pre-gyp@2.0.3':
     dependencies:
@@ -13019,6 +12946,10 @@ snapshots:
   prosemirror-changeset@2.4.1:
     dependencies:
       prosemirror-transform: 1.12.0
+
+  prosemirror-collab@1.3.1:
+    dependencies:
+      prosemirror-state: 1.4.4
 
   prosemirror-commands@1.7.2:
     dependencies:

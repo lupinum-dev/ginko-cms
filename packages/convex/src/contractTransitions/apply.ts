@@ -1,4 +1,5 @@
 import type { Doc, Id } from '../_generated/dataModel.js'
+import { invalidateSharedBody } from '../entries/collaborationState.js'
 import { deleteAssetRefsForSource } from '../entries/workflow/assetRefs.js'
 import { refreshDraftAssetRefsForSave } from '../entries/workflow/commands.js'
 import { readDraftRows } from '../entries/workflow/drafts.js'
@@ -77,6 +78,8 @@ async function applyTransitionOutput(
       updatedBy: args.actor,
       updatedAt: args.now,
     }
+    if (existing && existing.bodyMdc !== payload.bodyMdc)
+      await invalidateSharedBody(ctx, args.entry._id, locale)
     if (existing) await ctx.db.replace(existing._id, payload)
     else await ctx.db.insert('entryLocaleDrafts', payload)
     upsertedLocales.add(locale)

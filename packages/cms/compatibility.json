@@ -4,7 +4,7 @@
     "@lupinum/ginko-cms": "0.2.0-rc.3",
     "@lupinum/ginko-cms-convex": "0.2.0-rc.3",
     "@lupinum/ginko-cms-contract": "0.2.0-rc.3",
-    "@lupinum/ginko-content": "1.0.0-beta.9",
+    "@lupinum/ginko-content": "1.0.0-beta.10",
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
     "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
     "@lupinum/better-convex-vue": "1.0.0-beta.5",
@@ -15,10 +15,10 @@
   },
   "releaseArtifacts": {
     "@lupinum/ginko-content": {
-      "sourceCommit": "f8942a2d75c84304e5c28abff85142bda150b258",
+      "sourceCommit": "49286505140a7df7ef0d4537ad826fcb115b89a1",
       "worktreeDirty": false,
-      "sha256": "8db678d56212c8ea7b3ce66ee846d0f0b131717d32837d8c49ff2434801528a4",
-      "integrity": "sha512-jCgh2NMaQs0Nmv7aAf61AAHfltPw/CFSxp+aq+t2iPxeGnihO5jan21dYQffdK7cgYWI4phJ5hu7qocYRlP7gg==",
+      "sha256": "3e97784303cd5f9aa5da00c530a07d62e401a115aba2585c90ea638bb945ebc5",
+      "integrity": "sha512-iAhKBrmWpY+LvxEcz23J4dwYOQREKFPtN18AZ1O6hx6DXP7lEONAPsVRwHxk6eTN+SLM+qiEfK1J+1oexQwW4A==",
       "releaseCertification": "local-source-candidate-only"
     },
     "@lupinum/better-convex-mcp": {
@@ -43,10 +43,10 @@
       "releaseCertification": "release-ready"
     },
     "@lupinum/ginko-editor": {
-      "sourceCommit": "0a8c12c41edf7a8fa89f36799de31d721274e194",
+      "sourceCommit": "b88c658d733feb25c6808ecc3ecf83f91d0aa571",
       "worktreeDirty": false,
-      "sha256": "20225515d6a29fe0dbf6fa5955c5f2f425551bc4e66a5ed311080200ff7ee919",
-      "integrity": "sha512-Irc/ltdH3xWL5iAsgrg7OL7zrF02RfmoFyC3VglBM5uM2HU/Y/76PyRATs+YJtgvYSGMei/5CfRShRTCZSPxoA==",
+      "sha256": "6c8b9542e8a6875529359bbc16fa6e5dcbf9c4854d302a21ef00be4052fec005",
+      "integrity": "sha512-bPwzODojY6YBY5qPDaJn30oJpwwKxw4QJP5OO/HbGF1lrpDGVbGY418lZEj4n+qFuHC9MJrovmUUzH7Fb+1uqw==",
       "releaseCertification": "local-source-candidate-only"
     }
   },
@@ -57,7 +57,7 @@
     "@nuxt/kit": ["4.5.2"],
     "@better-auth/oauth-provider": ["1.7.2"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
-    "@lupinum/ginko-content": ["1.0.0-beta.9"],
+    "@lupinum/ginko-content": ["1.0.0-beta.10"],
     "better-auth": ["1.7.2"],
     "@lupinum/better-convex-nuxt": ["1.0.0-beta.5"],
     "@lupinum/better-convex-vue": ["1.0.0-beta.5"],
@@ -75,7 +75,7 @@
     "dependencies": {
       "@nuxt/kit": "4.5.2",
       "@lupinum/better-convex-mcp": "1.0.0-beta.1",
-      "@lupinum/ginko-content": "1.0.0-beta.9",
+      "@lupinum/ginko-content": "1.0.0-beta.10",
       "better-auth": "1.7.2",
       "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
       "@lupinum/better-convex-vue": "1.0.0-beta.5",

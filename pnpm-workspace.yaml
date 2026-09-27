@@ -11,5 +11,5 @@ allowBuilds:
   unrs-resolver: true
   vue-demi: true
 overrides:
-  '@lupinum/ginko-content': 'file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.9.tgz'
+  '@lupinum/ginko-content': 'file:.pack/upstream/lupinum-ginko-content-1.0.0-beta.10.tgz'
   '@lupinum/ginko-editor': 'file:.pack/upstream/lupinum-ginko-editor-0.1.0.tgz'

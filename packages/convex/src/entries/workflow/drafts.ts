@@ -16,6 +16,7 @@ import { assertCollectionBodySupported, getCollectionOrThrow } from '../../lib/c
 import { assertMdcBodyWithinLimit } from '../../lib/contentLimits.js'
 import { isEqualJsonValue } from '../../lib/data.js'
 import type { MutationCtx, QueryOrMutationCtx } from '../../lib/types.js'
+import { invalidateSharedBody } from '../collaborationState.js'
 
 export type EntryDraftDoc = Doc<'entryLocaleDrafts'>
 
@@ -167,6 +168,8 @@ async function upsertLocaleDraft(
     updatedBy: args.appIdentity,
     updatedAt: args.now,
   }
+  if (args.existing && args.existing.bodyMdc !== payload.bodyMdc)
+    await invalidateSharedBody(ctx, args.entryId, args.locale)
   if (args.existing) await ctx.db.replace(args.existing._id, payload)
   else await ctx.db.insert('entryLocaleDrafts', payload)
 }

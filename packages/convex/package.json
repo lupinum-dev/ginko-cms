@@ -55,10 +55,11 @@
     "@lupinum/better-convex-mcp": "1.0.0-beta.1",
     "@lupinum/better-convex-nuxt": "1.0.0-beta.5",
     "@lupinum/ginko-cms-contract": "workspace:0.2.0-rc.3",
-    "@lupinum/ginko-content": "1.0.0-beta.9",
+    "@lupinum/ginko-content": "1.0.0-beta.10",
     "@modelcontextprotocol/server": "2.0.0",
     "convex": "1.42.2",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@lupinum/ginko-editor": "0.1.0"
   },
   "peerDependencies": {
     "better-auth": "1.7.2"

@@ -1,6 +1,6 @@
 import {
+  contentContractValidator,
   jsonObjectValidator,
-  jsonValueValidator,
 } from '@lupinum/ginko-cms-contract/convex/validators.js'
 import type { JsonObject, JsonValue } from '@lupinum/ginko-cms-contract/shared/types.js'
 import {
@@ -10,7 +10,7 @@ import {
   type ResolvedContentCollection,
   type ResolvedContentFieldV1,
 } from '@lupinum/ginko-content/cms-contract'
-import { v } from 'convex/values'
+import { v, type Validator } from 'convex/values'
 
 import { canRead } from './auth/checks.js'
 import { callerQuery, directInternalQuery, mutation, query } from './functions.js'
@@ -23,16 +23,19 @@ import {
 import type { MutationCtx, QueryOrMutationCtx } from './lib/types.js'
 
 export const installCmsContractArgs = {
-  content: jsonObjectValidator,
+  content: contentContractValidator,
   contentHash: v.string(),
   presentation: jsonObjectValidator,
   presentationHash: v.string(),
 }
 
+// Drift values have already passed their domain validator, and a first install
+// returns the complete contract. Do not reapply the generic field depth limit.
+const driftValueValidator = v.any() as Validator<JsonValue, 'required', string>
 const driftItemValidator = v.object({
   path: v.string(),
-  installed: v.optional(jsonValueValidator),
-  expected: v.optional(jsonValueValidator),
+  installed: v.optional(driftValueValidator),
+  expected: v.optional(driftValueValidator),
 })
 
 export const installCmsContractReturns = v.object({

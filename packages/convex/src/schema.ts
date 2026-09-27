@@ -2,6 +2,7 @@ import { translationSnapshotValidator } from '@lupinum/ginko-cms-contract/convex
 import {
   activityOutcomeValidator,
   ginkoPublicAssetFactValidator,
+  contentContractValidator,
   jsonObjectValidator,
   jsonValueValidator,
   localeTextValidator,
@@ -45,7 +46,7 @@ export default defineSchema({
 
   cmsContract: defineTable({
     key: v.literal('active'),
-    content: jsonObjectValidator,
+    content: contentContractValidator,
     presentation: jsonObjectValidator,
     contentHash: v.string(),
     presentationHash: v.string(),
@@ -63,7 +64,7 @@ export default defineSchema({
     fromPresentationHash: v.string(),
     toPresentationHash: v.string(),
     affectedCollections: v.array(v.string()),
-    targetContent: jsonObjectValidator,
+    targetContent: contentContractValidator,
     targetPresentation: jsonObjectValidator,
     state: v.union(
       v.literal('staging'),
@@ -902,6 +903,34 @@ export default defineSchema({
   })
     .index('by_entry', ['entryId'])
     .index('by_entry_locale', ['entryId', 'locale']),
+
+  editorBodyRooms: defineTable({
+    sourceDraftId: v.id('entryLocaleDrafts'),
+    entryId: v.id('entries'),
+    locale: v.string(),
+    document: v.string(),
+    epoch: v.string(),
+    generation: v.number(),
+    protocolVersion: v.optional(v.literal(1)),
+    schemaRevision: v.string(),
+    policyRevision: v.string(),
+    version: v.number(),
+    minimumVersion: v.number(),
+    historyBytes: v.number(),
+    sourceHash: v.string(),
+    updatedAt: v.number(),
+  }).index('by_entry_locale', ['entryId', 'locale']),
+  editorBodySteps: defineTable({
+    roomId: v.id('editorBodyRooms'),
+    epoch: v.string(),
+    version: v.number(),
+    clientId: v.string(),
+    steps: v.array(v.string()),
+    bytes: v.number(),
+    createdAt: v.number(),
+  })
+    .index('by_room_epoch_version', ['roomId', 'epoch', 'version'])
+    .index('by_createdAt', ['createdAt']),
 
   draftSearchEntries: defineTable({
     entryId: v.id('entries'),

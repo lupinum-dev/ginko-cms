@@ -8,6 +8,7 @@ import { mcpDelegatedScopeKeys } from '@lupinum/ginko-cms-contract/shared/permis
 import {
   buildResolvedContentContract,
   hashCanonicalJson,
+  type PortableComponentPolicy,
 } from '@lupinum/ginko-content/cms-contract'
 import { convexTest, type TestConvex } from 'convex-test'
 /// <reference types="vite/client" />
@@ -590,7 +591,11 @@ export async function seedMultiLocaleSettings(ctx: TestCtx) {
   await installTestContract(ctx, ['en', 'de'])
 }
 
-export async function installTestContract(ctx: TestCtx, locales: string[]) {
+export async function installTestContract(
+  ctx: TestCtx,
+  locales: string[],
+  componentPolicy?: PortableComponentPolicy,
+) {
   const route = (path: string, translatedPath: string) =>
     Object.fromEntries(locales.map((locale) => [locale, locale === 'de' ? translatedPath : path]))
   const contract = buildResolvedContentContract(
@@ -648,6 +653,7 @@ export async function installTestContract(ctx: TestCtx, locales: string[]) {
     },
     {
       defaultLocale: 'en',
+      componentPolicy,
       locales,
       localeFallbacks: Object.fromEntries(
         locales.map((locale) => [locale, locale === 'en' ? [] : ['en']]),
