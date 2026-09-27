@@ -111,7 +111,11 @@ export function useSharedEntryBody(
         mode.value = 'local'
         return
       }
-      const opened = await convex.mutation(api.ginkoCms.editor.openSharedBody, body)
+      const opened = await convex
+        .mutation(api.ginkoCms.editor.openSharedBody, body)
+        .catch((failure) => {
+          throw normalizeSharedBodyError(failure)
+        })
       if (!isCurrent()) return
       if (!opened.available) {
         if (saved)

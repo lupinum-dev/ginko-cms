@@ -33,5 +33,5 @@ export function normalizeSharedBodyError(failure: unknown): Error {
     return new CollaborationError('unavailable', message)
   if (cms?.code === 'EDITOR_COLLABORATION_REJECTED')
     return new CollaborationError('content', message)
-  return new Error(message)
+  return new Error(cms?.message ?? 'The shared body request could not complete. Try again.')
 }

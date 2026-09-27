@@ -84,6 +84,20 @@ beforeEach(async () => {
 afterEach(() => writeSharedBodyRecovery('ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en', ''))
 
 describe('Studio shared body host', () => {
+  it('does not display raw provider arguments or stack traces when opening fails', async () => {
+    mock.mutation.mockRejectedValue(
+      new Error(
+        'ArgumentValidationError: Object: {_trustedCaller: {email: "private@example.test"}}',
+      ),
+    )
+    const { wrapper, body } = mountBody()
+    await flushPromises()
+    expect(body.mode.value).toBe('error')
+    expect(body.error.value).toBe('The shared body request could not complete. Try again.')
+    expect(body.session.value).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it.each(['unmount', 'principal', 'permission'] as const)(
     'retains the latest recovery outside the component when storage fails during %s',
     async (retirement) => {
