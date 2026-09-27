@@ -45,7 +45,7 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && node scripts/build-component-entrypoints.mjs",
-    "codegen": "pnpm --dir ../.. exec convex codegen --component-dir packages/convex/src",
+    "codegen": "pnpm --dir ../.. exec better-convex convex codegen --component-dir packages/convex/src && node scripts/compact-component-api.mjs",
     "prepack": "pnpm run build",
     "prepare:component": "pnpm run codegen",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json"

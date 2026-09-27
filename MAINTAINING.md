@@ -173,6 +173,13 @@ pnpm run prepare:component
 Review generated-file changes by command and checksum/context, not by asking an
 agent to reason over the entire generated output.
 
+The component codegen command then factors exact finite-depth JSON unions into
+private type aliases with `compact-component-api.mjs`. Convex serializes validators
+before generating this API and does not preserve source aliases. This step changes
+no runtime validator or public type: it only removes repeated text. Run
+`prepare:component` after a raw `convex dev` regeneration before committing.
+The focused compaction tests check idempotence, assignability and the depth limit.
+
 CMS Convex consumes `@lupinum/ginko-content/cms-contract` directly. There is no
 CMS-owned vendor copy or regeneration command. Candidate verification must use
 the exact clean Content tarball recorded in `packages/cms/compatibility.json`;
