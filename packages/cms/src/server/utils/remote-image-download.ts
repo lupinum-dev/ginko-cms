@@ -109,7 +109,7 @@ export async function downloadRemoteImage(sourceUrl: string) {
           // Pin the checked address into the actual connection. A separate
           // validation lookup followed by ordinary fetch permits DNS rebinding.
           lookup: (_hostname, options, callback) => {
-            if (options.all) callback(null, [address])
+            if (options.all) callback(null, addresses)
             else callback(null, address.address, address.family)
           },
           headers: { accept: ALLOWED_ASSET_MIME_TYPES.join(', '), 'accept-encoding': 'identity' },

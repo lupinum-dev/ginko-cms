@@ -94,6 +94,22 @@ describe('remote image download boundary', () => {
     expect(mocks.lookup).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves public address fallback without a second DNS lookup', async () => {
+    const addresses = [
+      { address: '2606:4700:4700::1111', family: 6 },
+      { address: '93.184.216.34', family: 4 },
+    ]
+    mocks.lookup.mockResolvedValue(addresses)
+    await downloadRemoteImage(source)
+    const [url, options] = mocks.request.mock.calls[0]!
+    const callback = vi.fn()
+    options.lookup(url.hostname, { all: true }, callback)
+    expect(callback).toHaveBeenLastCalledWith(null, addresses)
+    options.lookup(url.hostname, { all: false }, callback)
+    expect(callback).toHaveBeenLastCalledWith(null, addresses[0]!.address, 6)
+    expect(mocks.lookup).toHaveBeenCalledTimes(1)
+  })
+
   it.each([
     'not a URL',
     'http://images.example.com/a',
