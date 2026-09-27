@@ -171,13 +171,23 @@ export async function claimAssetUploadSessionHandler(
     .query('assetUploadSessions')
     .withIndex('by_session', (query) => query.eq('sessionId', args.sessionId))
     .unique()
+  const isSameClaim = session?.state === 'uploaded' && session.storageId === args.storageId
   assertAssetUploadSession(session, {
     sessionId: args.sessionId,
     ownerId: appIdentity.userId,
     tokenHash: await hashValue(args.token),
     now: Date.now(),
-    state: 'awaiting-upload',
+    state: isSameClaim ? 'uploaded' : 'awaiting-upload',
   })
+  // A lost mutation response must not strand an otherwise valid upload.
+  // Identity, token and expiry checks still run before replaying its receipt.
+  if (isSameClaim) {
+    return {
+      sessionId: session.sessionId,
+      generation: session.generation,
+      expiresAt: session.expiresAt,
+    }
+  }
   const storageId = args.storageId
   if (await isStorageClaimedByAnotherOwner(ctx, storageId, { uploadSessionId: session._id })) {
     throwCmsError('ASSET_UPLOAD_STORAGE_ALREADY_CLAIMED', 'Uploaded storage is already claimed.')
