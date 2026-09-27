@@ -20,7 +20,12 @@ export type ArchivedSharedBodyRecovery = { key: string; source: string }
 
 /** Export attempts are copies, not proof the browser saved a file. Never replay these. */
 export function archiveSharedBodyRecovery(key: string, source: string) {
-  if (readArchivedSharedBodyRecoveries(key).some((copy) => copy.source === source)) return
+  const existing = readArchivedSharedBodyRecoveries(key).find((copy) => copy.source === source)
+  if (existing) {
+    // A previous failed write is only a memory copy, not a completed archive.
+    if (retained.has(existing.key)) writeSharedBodyRecovery(existing.key, source)
+    return
+  }
   const archiveKey = `${key}/export/${crypto.randomUUID()}`
   writeSharedBodyRecovery(archiveKey, source)
 }
@@ -28,12 +33,17 @@ export function archiveSharedBodyRecovery(key: string, source: string) {
 export function readArchivedSharedBodyRecoveries(key: string): ArchivedSharedBodyRecovery[] {
   const prefix = `${key}/export/`
   const copies = new Map<string, string>()
-  for (let index = 0; index < sessionStorage.length; index++) {
-    const storedKey = sessionStorage.key(index)
-    if (storedKey?.startsWith(prefix)) {
-      const source = sessionStorage.getItem(storedKey)
-      if (source) copies.set(storedKey, source)
+  try {
+    for (let index = 0; index < sessionStorage.length; index++) {
+      const storedKey = sessionStorage.key(index)
+      if (storedKey?.startsWith(prefix)) {
+        const source = sessionStorage.getItem(storedKey)
+        if (source) copies.set(storedKey, source)
+      }
     }
+  } catch {
+    // Browser policy can block reads as well as writes. Retained copies must
+    // remain exportable even when durable storage cannot be enumerated.
   }
   for (const [retainedKey, source] of retained)
     if (retainedKey.startsWith(prefix) && source) copies.set(retainedKey, source)

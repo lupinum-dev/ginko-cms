@@ -103,8 +103,8 @@ export function useSharedEntryBody(
       // a durable copy that belongs to this tab and authenticated principal.
       const retained = readRetainedSharedBodyRecovery(key)
       const saved = retained ?? sessionStorage.getItem(key)
-      archivedRecoveries.value = readArchivedSharedBodyRecoveries(key)
       recoverySource.value = saved ?? ''
+      archivedRecoveries.value = readArchivedSharedBodyRecoveries(key)
       if (retained)
         throw new Error(
           'Your latest unsent edits could not be saved to browser storage. They remain only in this tab. Keep it open and download the recovery copy before reopening.',
