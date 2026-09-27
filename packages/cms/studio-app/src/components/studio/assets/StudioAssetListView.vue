@@ -18,6 +18,7 @@ const { finder, mode, pick, presentation, metadata, flow } = useStudioAssetBrows
           <input
             v-if="mode.mode.value === 'manage'"
             type="checkbox"
+            :aria-label="t('ginkoCms.studio.assetBrowser.selectAllVisible')"
             class="ginko:size-4 ginko:rounded ginko:border-border ginko:align-middle"
             :checked="finder.allVisibleAssetsSelected.value"
             :disabled="finder.assetCount.value === 0"
@@ -59,12 +60,16 @@ const { finder, mode, pick, presentation, metadata, flow } = useStudioAssetBrows
           <input
             v-if="mode.mode.value === 'manage'"
             type="checkbox"
+            :aria-label="t('ginkoCms.studio.assetBrowser.selectAsset', { filename: item.filename })"
             class="ginko:size-4 ginko:rounded ginko:border-border ginko:align-middle"
             :checked="finder.selectedAssetIds.value.includes(item.id)"
             @change="finder.toggleAssetSelection(item.id)"
           />
           <button
             v-else
+            type="button"
+            :aria-label="t('ginkoCms.studio.assetBrowser.selectAsset', { filename: item.filename })"
+            :aria-pressed="pick.isChosen(item.id)"
             class="ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:text-xs"
             :class="
               pick.isChosen(item.id)
@@ -95,12 +100,18 @@ const { finder, mode, pick, presentation, metadata, flow } = useStudioAssetBrows
               />
             </div>
             <span class="ginko:min-w-0">
-              <span
-                class="ginko:block ginko:truncate"
+              <button
+                type="button"
+                class="ginko:block ginko:max-w-full ginko:truncate ginko:rounded-sm ginko:text-left ginko:focus-visible:outline-2 ginko:focus-visible:outline-offset-2 ginko:focus-visible:outline-ring"
                 :class="item.deletedAt ? 'ginko:line-through ginko:text-muted-foreground' : ''"
+                :aria-label="
+                  t('ginkoCms.studio.assetBrowser.openAsset', { filename: item.filename })
+                "
+                @click.stop="flow.handleItemClick(item)"
+                @dblclick.stop="flow.handleItemDoubleClick(item)"
               >
                 {{ item.filename }}
-              </span>
+              </button>
               <span class="ginko:block ginko:truncate ginko:text-xs ginko:text-muted-foreground/60">
                 {{ presentation.ownerPathLabel(item) }}
               </span>

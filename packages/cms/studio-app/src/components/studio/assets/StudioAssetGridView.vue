@@ -24,10 +24,15 @@ const { finder, mode, pick, presentation, flow } = useStudioAssetBrowserContext(
           ? 'ginko:bg-primary/8 ginko:ring-1 ginko:ring-primary/20'
           : 'ginko:hover:bg-muted/50'
       "
-      @click="flow.handleItemClick(item)"
-      @dblclick="flow.handleItemDoubleClick(item)"
     >
       <button
+        type="button"
+        :aria-label="t('ginkoCms.studio.assetBrowser.selectAsset', { filename: item.filename })"
+        :aria-pressed="
+          mode.mode.value === 'manage'
+            ? finder.selectedAssetIds.value.includes(item.id)
+            : pick.isChosen(item.id)
+        "
         class="ginko:absolute ginko:left-2 ginko:top-2 ginko:z-10 ginko:inline-flex ginko:size-5 ginko:items-center ginko:justify-center ginko:rounded-full ginko:border ginko:bg-background/90 ginko:text-xs ginko:transition-colors"
         :class="
           (
@@ -53,36 +58,44 @@ const { finder, mode, pick, presentation, flow } = useStudioAssetBrowserContext(
           class="ginko:size-3"
         />
       </button>
-      <div
-        class="ginko:mb-2 ginko:flex ginko:aspect-square ginko:w-full ginko:items-center ginko:justify-center ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/50 ginko:bg-muted/40"
+      <button
+        type="button"
+        class="ginko:flex ginko:w-full ginko:flex-col ginko:items-center ginko:rounded-lg ginko:focus-visible:outline-2 ginko:focus-visible:outline-offset-2 ginko:focus-visible:outline-ring"
+        :aria-label="t('ginkoCms.studio.assetBrowser.openAsset', { filename: item.filename })"
+        @click="flow.handleItemClick(item)"
+        @dblclick="flow.handleItemDoubleClick(item)"
       >
-        <img
-          v-if="presentation.canShowPreview(item)"
-          :src="item.thumbnailUrl ?? undefined"
-          :alt="item.filename"
-          class="ginko:h-full ginko:w-full ginko:object-cover"
-          @error="presentation.markPreviewFailed(item)"
-        />
-        <Icon
-          v-else
-          :name="finder.mimeIcon(item.mimeType)"
-          class="ginko:size-10 ginko:text-muted-foreground/40"
-        />
-      </div>
-      <span
-        class="ginko:line-clamp-2 ginko:w-full ginko:text-center ginko:text-xs ginko:leading-tight"
-        :class="item.deletedAt ? 'ginko:line-through ginko:text-muted-foreground' : ''"
-      >
-        {{ item.filename }}
-      </span>
-      <span class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground/60">{{
-        finder.formatFileSize(item.size)
-      }}</span>
-      <span
-        class="ginko:mt-0.5 ginko:line-clamp-1 ginko:w-full ginko:text-center ginko:text-xs ginko:text-muted-foreground/60"
-      >
-        {{ presentation.ownerPathLabel(item) }}
-      </span>
+        <span
+          class="ginko:mb-2 ginko:flex ginko:aspect-square ginko:w-full ginko:items-center ginko:justify-center ginko:overflow-hidden ginko:rounded-xl ginko:border ginko:border-border/50 ginko:bg-muted/40"
+        >
+          <img
+            v-if="presentation.canShowPreview(item)"
+            :src="item.thumbnailUrl ?? undefined"
+            alt=""
+            class="ginko:h-full ginko:w-full ginko:object-cover"
+            @error="presentation.markPreviewFailed(item)"
+          />
+          <Icon
+            v-else
+            :name="finder.mimeIcon(item.mimeType)"
+            class="ginko:size-10 ginko:text-muted-foreground/40"
+          />
+        </span>
+        <span
+          class="ginko:line-clamp-2 ginko:w-full ginko:text-center ginko:text-xs ginko:leading-tight"
+          :class="item.deletedAt ? 'ginko:line-through ginko:text-muted-foreground' : ''"
+        >
+          {{ item.filename }}
+        </span>
+        <span class="ginko:mt-0.5 ginko:text-xs ginko:text-muted-foreground/60">{{
+          finder.formatFileSize(item.size)
+        }}</span>
+        <span
+          class="ginko:mt-0.5 ginko:line-clamp-1 ginko:w-full ginko:text-center ginko:text-xs ginko:text-muted-foreground/60"
+        >
+          {{ presentation.ownerPathLabel(item) }}
+        </span>
+      </button>
     </div>
     <div v-if="finder.hasMoreAssets.value" class="ginko:flex ginko:justify-center ginko:py-4">
       <Button

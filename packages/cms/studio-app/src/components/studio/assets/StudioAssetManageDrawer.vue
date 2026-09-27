@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ArrowUp, Globe, RefreshCw, Trash2, Undo2, X } from '@lucide/vue'
+import { useMediaQuery } from '@vueuse/core'
 import { computed } from 'vue'
 
 import { mimeKind } from '../../../composables/internal/assetFinderUtils'
@@ -15,6 +16,8 @@ import type { StudioAssetInfoRow } from './StudioAssetInfoList.vue'
 const { t } = useCmsI18n()
 const { finder, presentation, selection, flow, tags } = useStudioAssetBrowserContext()
 
+// The mobile details sheet owns narrow viewports; never mount two modal sheets.
+const lgUp = useMediaQuery('(min-width: 1024px)')
 const selected = finder.selectedAsset
 
 const basicRows = computed<StudioAssetInfoRow[]>(() => {
@@ -81,7 +84,7 @@ const locationRows = computed<StudioAssetInfoRow[]>(() => {
 </script>
 
 <template>
-  <Sheet v-model:open="selection.drawerOpen.value">
+  <Sheet v-if="lgUp" v-model:open="selection.drawerOpen.value">
     <SheetContent side="right" class="ginko:p-0">
       <template v-if="selected">
         <SheetHeader class="ginko:border-b ginko:pr-12">
