@@ -90,43 +90,46 @@ afterEach(() => {
 })
 
 describe('Studio shared body host', () => {
-  it('keeps retained active and archived copies exportable when browser storage reads fail', async () => {
-    const key = 'ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en'
-    const source = JSON.stringify({ document: 'Latest retained copy' })
-    retainSharedBodyRecovery(key, source)
-    retainSharedBodyRecovery(`${key}/export/retained`, source)
-    const length = vi.spyOn(Storage.prototype, 'length', 'get').mockImplementation(() => {
-      throw new DOMException('Storage blocked', 'SecurityError')
-    })
-    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new DOMException('Storage blocked', 'SecurityError')
-    })
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
-    const OriginalURL = URL
-    vi.stubGlobal(
-      'URL',
-      class extends OriginalURL {
-        static createObjectURL = vi.fn(() => 'blob:retained-copy')
-        static revokeObjectURL = vi.fn()
-      },
-    )
-    const { wrapper, body } = mountBody()
-    try {
-      await flushPromises()
-      expect(body.mode.value).toBe('error')
-      expect(body.recoverySource.value).toBe(source)
-      expect(body.archivedRecoveries.value).toEqual([{ key: `${key}/export/retained`, source }])
-      expect(body.downloadRecovery()).toBe(true)
-      expect(body.downloadArchivedRecovery(`${key}/export/retained`)).toBe(true)
-      expect(click).toHaveBeenCalledTimes(2)
-    } finally {
-      wrapper.unmount()
-      length.mockRestore()
-      get.mockRestore()
-      click.mockRestore()
-      vi.unstubAllGlobals()
-    }
-  })
+  it.each([true, false])(
+    'keeps retained copies exportable when browser storage reads fail (active retained: %s)',
+    async (activeRetained) => {
+      const key = 'ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en'
+      const source = JSON.stringify({ document: 'Latest retained copy' })
+      if (activeRetained) retainSharedBodyRecovery(key, source)
+      retainSharedBodyRecovery(`${key}/export/retained`, source)
+      const length = vi.spyOn(Storage.prototype, 'length', 'get').mockImplementation(() => {
+        throw new DOMException('Storage blocked', 'SecurityError')
+      })
+      const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('Storage blocked', 'SecurityError')
+      })
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      const OriginalURL = URL
+      vi.stubGlobal(
+        'URL',
+        class extends OriginalURL {
+          static createObjectURL = vi.fn(() => 'blob:retained-copy')
+          static revokeObjectURL = vi.fn()
+        },
+      )
+      const { wrapper, body } = mountBody()
+      try {
+        await flushPromises()
+        expect(body.mode.value).toBe('error')
+        expect(body.recoverySource.value).toBe(activeRetained ? source : '')
+        expect(body.archivedRecoveries.value).toEqual([{ key: `${key}/export/retained`, source }])
+        expect(body.downloadRecovery()).toBe(activeRetained)
+        expect(body.downloadArchivedRecovery(`${key}/export/retained`)).toBe(true)
+        expect(click).toHaveBeenCalledTimes(activeRetained ? 2 : 1)
+      } finally {
+        wrapper.unmount()
+        length.mockRestore()
+        get.mockRestore()
+        click.mockRestore()
+        vi.unstubAllGlobals()
+      }
+    },
+  )
 
   it('does not display raw provider arguments or stack traces when opening fails', async () => {
     mock.mutation.mockRejectedValue(
