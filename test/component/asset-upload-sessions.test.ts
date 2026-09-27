@@ -50,6 +50,65 @@ async function createAndClaim(
 }
 
 describe('canonical asset upload sessions', () => {
+  it('replays the same upload claim without advancing its generation', async () => {
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const { user, session, storageId, claim } = await createAndClaim(ctx, 'owner-1')
+    const args = {
+      sessionId: session.sessionId,
+      token: session.token,
+      storageId: String(storageId),
+    }
+    await expect(user.mutation(api.assets.claimAssetUploadSession, args)).resolves.toEqual(claim)
+    await expect(user.mutation(api.assets.claimAssetUploadSession, args)).resolves.toEqual(claim)
+    expect(await ctx.readAll('assetUploadSessions')).toEqual([
+      expect.objectContaining({ state: 'uploaded', generation: 2, storageId }),
+    ])
+    const replacementStorage = await seedStorage(ctx, validPng)
+    await expect(
+      user.mutation(api.assets.claimAssetUploadSession, {
+        ...args,
+        storageId: String(replacementStorage),
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) => getCmsErrorData(error)?.code === 'ASSET_UPLOAD_SESSION_REPLAYED',
+    )
+    await expect(
+      user.mutation(api.assets.claimAssetUploadSession, {
+        ...args,
+        token: 'wrong-token',
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) => getCmsErrorData(error)?.code === 'ASSET_UPLOAD_SESSION_TOKEN_INVALID',
+    )
+  })
+
+  it('does not replay an expired or revoked upload claim', async () => {
+    vi.useFakeTimers()
+    const ctx = createCtx()
+    await seedOwner(ctx)
+    const { user, session, storageId } = await createAndClaim(ctx, 'owner-1')
+    const args = {
+      sessionId: session.sessionId,
+      token: session.token,
+      storageId: String(storageId),
+    }
+    const now = Date.now()
+    vi.setSystemTime(session.expiresAt)
+    await expect(user.mutation(api.assets.claimAssetUploadSession, args)).rejects.toSatisfy(
+      (error: unknown) => getCmsErrorData(error)?.code === 'ASSET_UPLOAD_SESSION_EXPIRED',
+    )
+    vi.setSystemTime(now)
+    await ctx.raw.run(async (innerCtx) => {
+      const member = await innerCtx.db.query('members').first()
+      await innerCtx.db.delete(member!._id)
+    })
+    await expect(user.mutation(api.assets.claimAssetUploadSession, args)).rejects.toThrow()
+    expect(await ctx.readAll('assetUploadSessions')).toEqual([
+      expect.objectContaining({ state: 'uploaded', generation: 2, storageId }),
+    ])
+  })
+
   it('[AST-01] stores only a token hash and makes concurrent or lost-response finalize retries idempotent', async () => {
     const ctx = createCtx()
     await seedOwner(ctx)
