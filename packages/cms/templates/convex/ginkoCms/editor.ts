@@ -418,10 +418,7 @@ export const getSharedBodyHead = query({
 export const pullSharedBody = query({
   args: pullSharedBodyArgs.args,
   handler: async (ctx, args) =>
-    await ctx.runQuery(
-      components.ginkoCms.editor.pullSharedBody,
-      await bindCmsCaller(ctx, args),
-    ),
+    await ctx.runQuery(components.ginkoCms.editor.pullSharedBody, await bindCmsCaller(ctx, args)),
 })
 
 export const pushSharedBody = mutation({

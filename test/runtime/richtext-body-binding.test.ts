@@ -53,9 +53,9 @@ describe('canonical body binding', () => {
             GinkoEditor: true,
             StudioRichtextImageLibrary: true,
             StudioAssetPicker: true,
-          StudioAssetMetadataDialog: true,
-          Button: true,
-          Icon: true,
+            StudioAssetMetadataDialog: true,
+            Button: true,
+            Icon: true,
           },
         },
       })
