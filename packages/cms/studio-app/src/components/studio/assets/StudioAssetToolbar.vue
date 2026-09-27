@@ -126,7 +126,7 @@ const showFilterRow = computed(() => filtersOpen.value || finder.activeFilterCou
         size="sm"
         class="ginko:h-7 ginko:w-7 ginko:p-0 ginko:@5xl:hidden"
         :aria-label="t('ginkoCms.studio.assetBrowser.inspectSelectedAriaLabel')"
-        @click="flow.mobileDetailsOpen.value = true"
+        @click="flow.detailsOpen.value = true"
       >
         <PanelRight class="ginko:size-4" />
       </Button>

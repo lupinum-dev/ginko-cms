@@ -91,7 +91,8 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
 
   // ── flow (mobile sheets, filter row, destructive intent) ─────────────────
   const mobileScopesOpen = ref(false)
-  const mobileDetailsOpen = ref(false)
+  // One open intent survives responsive layout changes; explicit closure clears it.
+  const detailsOpen = ref(false)
   const mobileFiltersOpen = ref(false)
   const pendingDestructiveAssetAction = ref<PendingDestructiveAssetAction>(null)
 
@@ -123,8 +124,9 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
   })
 
   const drawerOpen = computed({
-    get: () => props.mode === 'manage' && !!finder.selectedAsset.value,
+    get: () => props.mode === 'manage' && detailsOpen.value && !!finder.selectedAsset.value,
     set: (open) => {
+      detailsOpen.value = open
       if (!open) finder.selectAsset(null)
     },
   })
@@ -237,7 +239,7 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
       : asset.id
     emit('update:modelValue', value)
     emit('select-asset', finderAssetToStudioAsset(asset))
-    mobileDetailsOpen.value = false
+    detailsOpen.value = false
     if (!props.multiple) emit('close')
   }
 
@@ -249,7 +251,7 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
   // ── item flow ────────────────────────────────────────────────────────────
   function handleItemClick(asset: FinderAssetRecord) {
     finder.selectAsset(asset.id)
-    mobileDetailsOpen.value = true
+    detailsOpen.value = true
   }
 
   function handleItemDoubleClick(asset: FinderAssetRecord) {
@@ -317,6 +319,7 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
       if (!uploadedAsset) return
       pendingUploadedAssetId.value = null
       finder.selectAsset(uploadedAsset.id)
+      detailsOpen.value = true
       if (isPickMode.value) chooseAsset(uploadedAsset)
     },
     { deep: true },
@@ -388,7 +391,7 @@ export function createStudioAssetBrowserContext(options: CreateStudioAssetBrowse
     },
     flow: {
       mobileScopesOpen,
-      mobileDetailsOpen,
+      detailsOpen,
       mobileFiltersOpen,
       localError,
       handleItemClick,

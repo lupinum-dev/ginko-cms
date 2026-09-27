@@ -24,9 +24,9 @@ const lgUp = useMediaQuery('(min-width: 1024px)')
 const detailAsset = selection.selectedAssetForDetails
 
 const open = computed({
-  get: () => flow.mobileDetailsOpen.value && !lgUp.value,
+  get: () => flow.detailsOpen.value && !!detailAsset.value && !lgUp.value,
   set: (value: boolean) => {
-    flow.mobileDetailsOpen.value = value
+    flow.detailsOpen.value = value
   },
 })
 

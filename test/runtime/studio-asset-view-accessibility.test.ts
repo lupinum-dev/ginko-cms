@@ -62,7 +62,7 @@ function createContext() {
     flow: {
       handleItemClick: vi.fn(),
       handleItemDoubleClick: vi.fn(),
-      mobileDetailsOpen: ref(true),
+      detailsOpen: ref(true),
     },
   }
 }
@@ -128,6 +128,10 @@ for (const [name, component] of [
       expect(select.attributes('aria-pressed')).toBe('true')
       expect(context.pick.togglePickerSelection).toHaveBeenCalledExactlyOnceWith(item)
       expect(context.flow.handleItemClick).not.toHaveBeenCalled()
+      await select.trigger('click')
+      await select.trigger('dblclick')
+      expect(context.pick.togglePickerSelection).toHaveBeenCalledTimes(2)
+      expect(context.flow.handleItemDoubleClick).not.toHaveBeenCalled()
       wrapper.unmount()
     })
   })

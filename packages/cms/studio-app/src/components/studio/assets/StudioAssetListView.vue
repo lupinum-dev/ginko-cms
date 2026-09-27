@@ -56,7 +56,7 @@ const { finder, mode, pick, presentation, metadata, flow } = useStudioAssetBrows
         @click="flow.handleItemClick(item)"
         @dblclick="flow.handleItemDoubleClick(item)"
       >
-        <td class="ginko:py-1.5 ginko:pl-4 ginko:pr-2" @click.stop>
+        <td class="ginko:py-1.5 ginko:pl-4 ginko:pr-2" @click.stop @dblclick.stop>
           <input
             v-if="mode.mode.value === 'manage'"
             type="checkbox"
