@@ -17,6 +17,11 @@ import { api } from '../../boundary/api'
 import { useCmsAuthState } from '../useCmsAuthState'
 import { claimSharedBodyClient } from './sharedBodyClientLock'
 import { normalizeSharedBodyError } from './sharedBodyErrors'
+import {
+  readRetainedSharedBodyRecovery,
+  retainSharedBodyRecovery,
+  writeSharedBodyRecovery,
+} from './sharedBodyRecovery'
 import type { StudioAssetContext } from './types'
 
 /** One entry locale and authenticated principal own each mounted session. */
@@ -45,10 +50,21 @@ export function useSharedEntryBody(
     return value?.entryId && value.locale ? { entryId: value.entryId, locale: value.locale } : null
   })
 
+  function closeSession() {
+    const current = session.value
+    if (!current) return
+    const recovery = current.getRecovery()
+    // Editor.close() always stops transport, even if its recovery write fails.
+    // Keep that latest copy outside this retiring component before closing.
+    if (!current.flushRecovery() && recovery)
+      retainSharedBodyRecovery(storageKey, JSON.stringify(recovery))
+    current.close()
+  }
+
   async function open() {
     const current = ++generation
     stopState?.()
-    session.value?.close()
+    closeSession()
     retireRecovery?.()
     retireRecovery = undefined
     releaseClient?.()
@@ -61,7 +77,7 @@ export function useSharedEntryBody(
     recoveryMarkdown.value = ''
     storageKey = ''
     const body = identity.value
-    if (!body || disabled.value || !auth.authEnabled.value || !convex) {
+    if (!body || !auth.authEnabled.value || !convex) {
       mode.value = 'local'
       return
     }
@@ -80,8 +96,21 @@ export function useSharedEntryBody(
     try {
       // Storage errors stop the session before typing. Unsent edits must have
       // a durable copy that belongs to this tab and authenticated principal.
-      const saved = sessionStorage.getItem(key)
+      const retained = readRetainedSharedBodyRecovery(key)
+      const saved = retained ?? sessionStorage.getItem(key)
       recoverySource.value = saved ?? ''
+      if (retained)
+        throw new Error(
+          'Your latest unsent edits could not be saved to browser storage. They remain only in this tab. Keep it open and download the recovery copy before reopening.',
+        )
+      if (disabled.value) {
+        if (saved)
+          throw new Error(
+            'Editing is unavailable. Download your unsent recovery copy before reopening.',
+          )
+        mode.value = 'local'
+        return
+      }
       const opened = await convex.mutation(api.ginkoCms.editor.openSharedBody, body)
       if (!isCurrent()) return
       if (!opened.available) {
@@ -177,9 +206,11 @@ export function useSharedEntryBody(
         onRecovery(value) {
           if (!acceptsRecovery) return
           const encoded = value ? JSON.stringify(value) : ''
-          if (value) sessionStorage.setItem(key, encoded)
-          else sessionStorage.removeItem(key)
-          if (isCurrent()) recoverySource.value = encoded
+          try {
+            writeSharedBodyRecovery(key, encoded)
+          } finally {
+            if (isCurrent()) recoverySource.value = encoded
+          }
         },
       })
       stopState = session.value.subscribe((value) => {
@@ -218,9 +249,9 @@ export function useSharedEntryBody(
     try {
       // close() flushes one final recovery copy. Retire it before clearing the
       // exported copy so reopening cannot replay the operations just discarded.
-      session.value?.close()
+      closeSession()
       retireRecovery?.()
-      sessionStorage.removeItem(storageKey)
+      writeSharedBodyRecovery(storageKey, '')
     } catch (failure) {
       error.value = getCmsErrorMessage(failure, 'The recovery copy could not be cleared.')
       return
@@ -247,7 +278,7 @@ export function useSharedEntryBody(
     disposed = true
     generation++
     stopState?.()
-    session.value?.close()
+    closeSession()
     retireRecovery?.()
     releaseClient?.()
   })

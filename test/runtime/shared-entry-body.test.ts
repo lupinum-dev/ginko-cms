@@ -2,9 +2,13 @@ import { GinkoEditor, type GinkoEditorHandle } from '@lupinum/ginko-editor'
 // @vitest-environment jsdom
 import { applyCollaborationSteps, createCollaborationSnapshot } from '@lupinum/ginko-editor/runtime'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 
+import {
+  readRetainedSharedBodyRecovery,
+  writeSharedBodyRecovery,
+} from '../../packages/cms/studio-app/src/composables/internal/sharedBodyRecovery'
 import type { StudioAssetContext } from '../../packages/cms/studio-app/src/composables/internal/types'
 import { useSharedEntryBody } from '../../packages/cms/studio-app/src/composables/internal/useSharedEntryBody'
 
@@ -77,8 +81,60 @@ beforeEach(async () => {
     clientPrefix: 'alice/',
   })
 })
+afterEach(() => writeSharedBodyRecovery('ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en', ''))
 
 describe('Studio shared body host', () => {
+  it.each(['unmount', 'principal', 'permission'] as const)(
+    'retains the latest recovery outside the component when storage fails during %s',
+    async (retirement) => {
+      const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      const first = mountBody(true)
+      let second: ReturnType<typeof mountBody> | undefined
+      let write: ReturnType<typeof vi.spyOn> | undefined
+      try {
+        await flushPromises()
+        await vi.waitFor(() => expect(mock.onUpdate).toHaveBeenCalled())
+        const previous = first.body.session.value!
+        first.editor.value!.getEditor()!.commands.insertContentAt(1, 'Latest unsent ')
+        write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+          throw new DOMException('Quota exceeded', 'QuotaExceededError')
+        })
+        if (retirement === 'unmount') first.wrapper.unmount()
+        if (retirement === 'principal') mock.principal.value = 'user:bob'
+        if (retirement === 'permission') first.disabled.value = true
+        await flushPromises()
+        expect(previous.state.status).toBe('closed')
+        const key = 'ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en'
+        expect(sessionStorage.getItem(key)).toBeNull()
+        const held = readRetainedSharedBodyRecovery(key)!
+        expect(JSON.parse(held).document).toContain('Latest unsent Body.')
+        const reload = new Event('beforeunload', { cancelable: true })
+        window.dispatchEvent(reload)
+        expect(reload.defaultPrevented).toBe(true)
+        if (retirement === 'principal')
+          expect(first.body.recoverySource.value).not.toContain('Latest unsent')
+        if (retirement === 'permission') {
+          expect(first.body.mode.value).toBe('error')
+          expect(first.body.recoverySource.value).toBe(held)
+        }
+        first.wrapper.unmount()
+        write.mockRestore()
+        mock.principal.value = 'user:alice'
+        second = mountBody()
+        await flushPromises()
+        expect(second.body.mode.value).toBe('error')
+        expect(second.body.error.value).toContain('only in this tab')
+        expect(second.body.recoverySource.value).toBe(held)
+        expect(second.body.session.value).toBeUndefined()
+      } finally {
+        first.wrapper.unmount()
+        second?.wrapper.unmount()
+        write?.mockRestore()
+        online.mockRestore()
+      }
+    },
+  )
+
   it('exports then discards pending operations before explicitly reopening the accepted source', async () => {
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     const { wrapper, body, editor } = mountBody(true)

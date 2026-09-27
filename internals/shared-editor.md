@@ -20,8 +20,12 @@ for deliberate merging and must never automatically overwrite accepted source.
 
 Recovery lives in this tab's session storage under the authenticated principal,
 entry and locale. Closing a session flushes its last pending operations to that
-original key before a new principal or locale can open. A storage failure blocks
-typing. The explicit export-and-reopen action closes the old session before
+original key before a new principal or locale can open. If browser storage
+becomes full, the latest copy survives in a tab-lifetime owner under the old key;
+transport still closes on forced retirement. Returning as that principal shows
+a memory-only warning and requires export before reopening. A reload warning
+protects this fallback, but it cannot survive a browser crash or forced exit.
+The explicit export-and-reopen action closes the old session before
 removing its exported copy, so that close cannot reinsert stale operations.
 
 Only the installed contract's top-level body field opens a shared room. Nested
