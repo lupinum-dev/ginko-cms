@@ -138,7 +138,7 @@ describe('draftPreview.getDraftPreview', () => {
         source: 'content/posts/**/*.md',
         route: '/posts',
         i18n: true,
-        cms: { type: 'flat' },
+        cms: { type: 'flat', fields: { hero: { type: 'image', localized: false } } },
       },
     })
     const storageId = await seedStorageObject(ctx, { bytes: 'image-fixture', type: 'image/png' })
@@ -189,7 +189,12 @@ height: 640
 
 The garden is open.`
     const owner = ctx.asCmsUser('owner-1')
-    const entryId = await owner.createEntry({ collection: 'posts', slug: 'garden', bodyMdc })
+    const entryId = await owner.createEntry({
+      collection: 'posts',
+      slug: 'garden',
+      shared: { hero: assetId, title: 'Private garden' },
+      bodyMdc,
+    })
     const preview = await owner.query(api.draftPreview.getDraftPreview, { entryId, locale: 'en' })
     const image = JSON.parse(preview.bodyAstJson).children.find(
       (node: { tag?: string }) => node.tag === 'image',
@@ -203,11 +208,22 @@ The garden is open.`
       height: '640',
     })
     expect(preview.bodyAstJson).toContain('"$"')
-    expect(image.props.src).toMatch(/^https:\/\//)
+    expect(image.props.src).toBe(`/api/_ginko/assets/${assetId}`)
+    expect(preview.data.hero).toBe(`/api/_ginko/assets/${assetId}`)
+    const rawStorageUrl = await ctx.raw.run(async (inner) => {
+      const asset = await inner.db.get(assetId)
+      return asset ? await inner.storage.getUrl(asset.storageId) : null
+    })
+    expect(rawStorageUrl).toBeTruthy()
+    expect(JSON.stringify(preview)).not.toContain(rawStorageUrl)
     expect(image.props.src).not.toBe(assetId)
     const stored = await owner.query(api.editor.getEntry, { id: entryId, locale: 'en' })
     expect(stored.localeData.draft.bodyMdc).toBe(bodyMdc)
     expect(await ctx.readAll('publicEntries')).toHaveLength(0)
+    await publishEntry(owner, entryId)
+    const published = (await ctx.readAll('publicEntries'))[0]!
+    expect(published.assetFacts).toHaveLength(2)
+    expect(published.assetFacts.every((fact) => fact.url === rawStorageUrl)).toBe(true)
     await ctx.raw.run(async (dbCtx) => {
       await dbCtx.db.patch(assetId, { deletedAt: Date.now() })
     })

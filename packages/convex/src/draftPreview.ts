@@ -33,7 +33,7 @@ import {
 import { toStringId } from './lib/ids.js'
 import { pathPrefixForLocale, rootSlugForLocale } from './lib/paths.js'
 import type { HandlerQueryCtx } from './lib/types.js'
-import { buildPublicAssetFacts } from './publicAssets.js'
+import { buildDraftAssetFacts } from './publicAssets.js'
 
 // EDT-10 draft preview (v1): a dedicated, canRead-guarded read of the CURRENT
 // draft rows so an authenticated editor can see the page before publishing.
@@ -145,7 +145,7 @@ export const getDraftPreview = callerQuery.protected({
     const resolved = applyContentAssetFacts({
       data,
       bodyAst,
-      assetFacts: await buildPublicAssetFacts(ctx, refs),
+      assetFacts: await buildDraftAssetFacts(ctx, refs),
     })
 
     return {
