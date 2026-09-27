@@ -34,6 +34,7 @@ import {
   terminalAssetCleanupArgs,
   terminalAssetCleanupPageValidator,
 } from './assets/cleanupOperations.js'
+import { privateAssetUrl } from './assets/deliveryUrl.js'
 import {
   boundedPaginationOpts,
   mapAsset,
@@ -390,6 +391,26 @@ export const getAsset = callerQuery.protected({
   },
 })
 
+// Component-only: host HTTP delivery calls this directly. Never add a public
+// host query bridge; its storage URL is a server-side capability.
+export const getAssetDeliveryDescriptor = callerQuery.protected({
+  acceptsTrustedCaller: true,
+  id: 'assets:getAssetDeliveryDescriptor',
+  args: { assetId: v.string() },
+  guard: canRead,
+  returns: v.union(
+    v.null(),
+    v.object({ url: v.string(), mimeType: v.string(), bytes: v.number(), sha256: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    const assetId = ctx.db.normalizeId('assets', args.assetId)
+    const asset = assetId ? await ctx.db.get(assetId) : null
+    if (!asset || asset.deletedAt != null) return null
+    const url = await ctx.storage.getUrl(asset.storageId)
+    return url ? { url, mimeType: asset.mimeType, bytes: asset.size, sha256: asset.sha256 } : null
+  },
+})
+
 export const resolveAssetUrls = callerQuery.protected({
   acceptsTrustedCaller: true,
   id: 'assets:resolveAssetUrls',
@@ -416,7 +437,9 @@ export const resolveAssetUrls = callerQuery.protected({
         out[rawAssetId] = null
         continue
       }
-      out[rawAssetId] = await ctx.storage.getUrl(asset.storageId)
+      out[rawAssetId] = (await ctx.storage.getUrl(asset.storageId))
+        ? privateAssetUrl(rawAssetId)
+        : null
     }
     return out
   },
