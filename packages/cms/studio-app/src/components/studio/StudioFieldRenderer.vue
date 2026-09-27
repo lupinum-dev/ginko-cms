@@ -44,7 +44,9 @@ const value = computed({
     props.modelValue ??
     normalizedField.value.defaultValue ??
     getDefault(normalizedField.value.type, normalizedField.value.fields ?? undefined),
-  set: (value) => emit('update:modelValue', value),
+  set: (value) => {
+    if (!props.disabled) emit('update:modelValue', value)
+  },
 })
 const label = computed(() => fieldDisplayLabel(normalizedField.value, currentLocale.value))
 const fieldComponent = computed(() => {
@@ -83,20 +85,27 @@ const fieldError = computed(
     >
       {{ conditionHint }}
     </p>
-    <component
-      :is="fieldComponent"
-      :field="normalizedField"
-      :model-value="value"
-      :context="context"
-      :locale="locale"
-      :asset-context="assetContext"
-      :errors="errors"
-      :field-path="fieldPath"
-      :show-validation="showValidation"
-      :disabled="disabled"
-      :label="label"
-      :field-error="fieldError"
-      @update:model-value="value = $event"
-    />
+    <!-- Rich text disables its editor itself; recovery exports must stay usable
+         after editing permission is removed. Other fields inherit native disabling. -->
+    <fieldset
+      :disabled="disabled && normalizedField.type !== 'richtext'"
+      class="ginko:m-0 ginko:min-w-0 ginko:border-0 ginko:p-0"
+    >
+      <component
+        :is="fieldComponent"
+        :field="normalizedField"
+        :model-value="value"
+        :context="context"
+        :locale="locale"
+        :asset-context="assetContext"
+        :errors="errors"
+        :field-path="fieldPath"
+        :show-validation="showValidation"
+        :disabled="disabled"
+        :label="label"
+        :field-error="fieldError"
+        @update:model-value="value = $event"
+      />
+    </fieldset>
   </div>
 </template>

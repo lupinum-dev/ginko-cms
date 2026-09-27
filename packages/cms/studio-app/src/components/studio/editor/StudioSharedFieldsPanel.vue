@@ -96,9 +96,8 @@ const hasContent = computed(
         </StudioFieldShell>
       </fieldset>
 
-      <fieldset
+      <div
         v-if="editor.loader.sharedDetailFields.length > 0"
-        :disabled="!editor.loader.canEditEntries"
         class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2 ginko:@5xl:grid-cols-4"
       >
         <StudioFieldRenderer
@@ -112,7 +111,7 @@ const hasContent = computed(
           :disabled="!editor.loader.canEditEntries"
           @update:model-value="editor.draft.dataFields[field.key] = $event"
         />
-      </fieldset>
+      </div>
     </div>
   </StudioSection>
 </template>

@@ -201,9 +201,8 @@ function updateField(fieldKey: string, value: unknown) {
         @update="updateField"
       />
 
-      <fieldset
+      <div
         v-if="editor.loader.localizedDetailFields.length > 0"
-        :disabled="!isEditingTarget"
         class="ginko:m-0 ginko:grid ginko:grid-cols-1 ginko:gap-5 ginko:border-0 ginko:p-0 ginko:@3xl:grid-cols-2"
       >
         <StudioFieldRenderer
@@ -225,7 +224,7 @@ function updateField(fieldKey: string, value: unknown) {
           :disabled="!isEditingTarget"
           @update:model-value="updateField(field.key, $event)"
         />
-      </fieldset>
+      </div>
 
       <div
         v-if="isRouteBackedEntry && usesLocalizedSlug"

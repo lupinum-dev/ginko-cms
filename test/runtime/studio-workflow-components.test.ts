@@ -725,6 +725,43 @@ describe('Studio workflow components', () => {
     expect(wrapper.text()).not.toContain('Save translation draft')
   })
 
+  it.each(['locale', 'shared'] as const)(
+    'keeps %s recovery controls outside blanket disabling after revocation',
+    (panel) => {
+      const editor =
+        panel === 'locale' ? createLocalePanelEditor() : createSharedFieldsPanelEditor()
+      editor.loader.canEditEntries = false
+      Object.assign(editor.loader, {
+        localizedDetailFields: [{ key: 'body', type: 'richtext' }],
+        sharedDetailFields: [{ key: 'body', type: 'richtext' }],
+      })
+      const Host = defineComponent({
+        setup() {
+          provideStudioEntryEditorContext(editor as never)
+          return () =>
+            panel === 'locale'
+              ? h(StudioLocaleEditorPanel, { side: 'primary' })
+              : h(StudioSharedFieldsPanel)
+        },
+      })
+      const wrapper = mount(Host, {
+        global: {
+          stubs: {
+            ...studioStubs(),
+            StudioFieldRenderer: {
+              props: { disabled: Boolean },
+              template:
+                '<div><input data-recovery-editor :disabled="disabled" /><button data-recovery-download>Download recovery</button></div>',
+            },
+          },
+        },
+      })
+      expect(wrapper.get('[data-recovery-editor]').element.matches(':disabled')).toBe(true)
+      expect(wrapper.get('[data-recovery-download]').element.matches(':disabled')).toBe(false)
+      wrapper.unmount()
+    },
+  )
+
   it('[ADM-03] renders the code-defined model with route, locale, public capability, and advanced contract details', () => {
     const wrapper = mountCollectionContractSection()
 

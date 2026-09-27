@@ -12,7 +12,14 @@ const state = vi.hoisted(() => ({
 vi.mock('../../packages/cms/studio-app/src/composables/internal/useSharedEntryBody', () => ({
   useSharedEntryBody: (context: Ref<StudioAssetContext | undefined>) => {
     state.context = context
-    return { mode: ref('local'), ready: ref(true), mountKey: ref(0), session: ref(), state: ref() }
+    return {
+      mode: ref('local'),
+      ready: ref(true),
+      mountKey: ref(0),
+      session: ref(),
+      state: ref(),
+      archivedRecoveries: ref([]),
+    }
   },
 }))
 vi.mock('../../packages/cms/studio-app/src/composables/useCmsStudioQuery', () => ({

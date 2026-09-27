@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 
 import {
+  readArchivedSharedBodyRecoveries,
   readRetainedSharedBodyRecovery,
   writeSharedBodyRecovery,
 } from '../../packages/cms/studio-app/src/composables/internal/sharedBodyRecovery'
@@ -81,7 +82,11 @@ beforeEach(async () => {
     clientPrefix: 'alice/',
   })
 })
-afterEach(() => writeSharedBodyRecovery('ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en', ''))
+afterEach(() => {
+  const key = 'ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en'
+  for (const copy of readArchivedSharedBodyRecoveries(key)) writeSharedBodyRecovery(copy.key, '')
+  writeSharedBodyRecovery(key, '')
+})
 
 describe('Studio shared body host', () => {
   it('does not display raw provider arguments or stack traces when opening fails', async () => {
@@ -149,7 +154,7 @@ describe('Studio shared body host', () => {
     },
   )
 
-  it('exports then discards pending operations before explicitly reopening the accepted source', async () => {
+  it('keeps a non-replaying export copy after reopen and remount even when the browser ignores the download', async () => {
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     const { wrapper, body, editor } = mountBody(true)
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
@@ -180,6 +185,23 @@ describe('Studio shared body host', () => {
         sessionStorage.getItem('ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en'),
       ).toBeNull()
       expect(body.session.value!.getRecovery()).toBeNull()
+      expect(body.archivedRecoveries.value).toHaveLength(1)
+      expect(body.archivedRecoveries.value[0]!.source).toContain('Unsent ')
+      wrapper.unmount()
+      const remounted = mountBody()
+      await flushPromises()
+      expect(remounted.body.archivedRecoveries.value).toHaveLength(1)
+      expect(remounted.body.session.value!.getRecovery()).toBeNull()
+      const archiveKey = remounted.body.archivedRecoveries.value[0]!.key
+      expect(remounted.body.downloadArchivedRecovery(archiveKey)).toBe(true)
+      mock.principal.value = 'user:bob'
+      await flushPromises()
+      expect(remounted.body.archivedRecoveries.value).toEqual([])
+      expect(remounted.body.downloadArchivedRecovery(archiveKey)).toBe(false)
+      mock.principal.value = 'user:alice'
+      await flushPromises()
+      expect(remounted.body.archivedRecoveries.value).toHaveLength(1)
+      remounted.wrapper.unmount()
     } finally {
       wrapper.unmount()
       await vi.advanceTimersByTimeAsync(1000)
@@ -189,6 +211,61 @@ describe('Studio shared body host', () => {
       click.mockRestore()
     }
   })
+
+  it.each(['blocked download', 'full storage'] as const)(
+    'preserves pending edits and allows download-only retry after %s',
+    async (failure) => {
+      const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      const { wrapper, body, editor } = mountBody(true)
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      const OriginalURL = URL
+      vi.stubGlobal(
+        'URL',
+        class extends OriginalURL {
+          static createObjectURL = vi.fn(() => 'blob:recovery-test')
+          static revokeObjectURL = vi.fn()
+        },
+      )
+      let storage: ReturnType<typeof vi.spyOn> | undefined
+      try {
+        await flushPromises()
+        await vi.waitFor(() => expect(mock.onUpdate).toHaveBeenCalled())
+        editor.value!.getEditor()!.commands.insertContentAt(1, 'Keep unsent ')
+        if (failure === 'blocked download')
+          click.mockImplementation(() => {
+            throw new Error('Download blocked')
+          })
+        else
+          storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('Full', 'QuotaExceededError')
+          })
+        const key = 'ginko-cms/body-recovery/v1/user%3Aalice/entry-one/en'
+        body.keepRecoveryAndReopen()
+        expect(body.session.value!.state.status).toBe('closed')
+        expect(readRetainedSharedBodyRecovery(key) ?? sessionStorage.getItem(key)).toContain(
+          'Keep unsent ',
+        )
+        expect(readArchivedSharedBodyRecoveries(key)[0]!.source).toContain('Keep unsent ')
+        if (failure === 'blocked download') {
+          body.keepRecoveryAndReopen()
+          expect(readArchivedSharedBodyRecoveries(key)).toHaveLength(1)
+        }
+        click.mockImplementation(() => {})
+        expect(body.downloadRecovery()).toBe(true)
+        expect(click).toHaveBeenCalled()
+        // Download-only does not discard the active recovery, even with quota exhausted.
+        expect(readRetainedSharedBodyRecovery(key) ?? sessionStorage.getItem(key)).toContain(
+          'Keep unsent ',
+        )
+      } finally {
+        wrapper.unmount()
+        storage?.mockRestore()
+        online.mockRestore()
+        click.mockRestore()
+        vi.unstubAllGlobals()
+      }
+    },
+  )
 
   it.each(['unmount', 'locale', 'principal', 'permission'] as const)(
     'persists just-typed operations under the original principal before %s retires the session',

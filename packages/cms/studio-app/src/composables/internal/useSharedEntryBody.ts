@@ -18,9 +18,12 @@ import { useCmsAuthState } from '../useCmsAuthState'
 import { claimSharedBodyClient } from './sharedBodyClientLock'
 import { normalizeSharedBodyError } from './sharedBodyErrors'
 import {
+  archiveSharedBodyRecovery,
+  readArchivedSharedBodyRecoveries,
   readRetainedSharedBodyRecovery,
   retainSharedBodyRecovery,
   writeSharedBodyRecovery,
+  type ArchivedSharedBodyRecovery,
 } from './sharedBodyRecovery'
 import type { StudioAssetContext } from './types'
 
@@ -39,6 +42,7 @@ export function useSharedEntryBody(
   const error = ref('')
   const recoverySource = ref('')
   const recoveryMarkdown = ref('')
+  const archivedRecoveries = ref<ArchivedSharedBodyRecovery[]>([])
   let retireRecovery: (() => void) | undefined
   const mountKey = ref(0)
   let generation = 0
@@ -75,6 +79,7 @@ export function useSharedEntryBody(
     error.value = ''
     recoverySource.value = ''
     recoveryMarkdown.value = ''
+    archivedRecoveries.value = []
     storageKey = ''
     const body = identity.value
     if (!body || !auth.authEnabled.value || !convex) {
@@ -98,6 +103,7 @@ export function useSharedEntryBody(
       // a durable copy that belongs to this tab and authenticated principal.
       const retained = readRetainedSharedBodyRecovery(key)
       const saved = retained ?? sessionStorage.getItem(key)
+      archivedRecoveries.value = readArchivedSharedBodyRecoveries(key)
       recoverySource.value = saved ?? ''
       if (retained)
         throw new Error(
@@ -233,30 +239,39 @@ export function useSharedEntryBody(
     }
   }
 
-  function downloadRecovery() {
+  function downloadRecovery(sourceOverride?: string) {
     const current = session.value?.getRecovery()
-    const source = current ? JSON.stringify(current) : recoverySource.value
+    const source = sourceOverride ?? (current ? JSON.stringify(current) : recoverySource.value)
     if (!source) return false
     const url = URL.createObjectURL(new Blob([source], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url
     link.download = `ginko-body-${identity.value?.locale ?? 'recovery'}-${Date.now()}.json`
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    try {
+      link.click()
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
     return true
   }
 
   function keepRecoveryAndReopen() {
-    if (!downloadRecovery()) return
-    // The explicit action exports the unsent copy before replacing the local
-    // session. Server content is never overwritten by recovery data.
+    const current = session.value?.getRecovery()
+    const source = current ? JSON.stringify(current) : recoverySource.value
+    if (!source) return
+    // A click cannot confirm that the browser saved the file. Keep a distinct
+    // non-replaying copy before clearing pending operations or reopening.
     try {
       // close() flushes one final recovery copy. Retire it before clearing the
       // exported copy so reopening cannot replay the operations just discarded.
       closeSession()
       retireRecovery?.()
+      archiveSharedBodyRecovery(storageKey, source)
+      archivedRecoveries.value = readArchivedSharedBodyRecoveries(storageKey)
+      if (!downloadRecovery(source)) return
       writeSharedBodyRecovery(storageKey, '')
     } catch (failure) {
+      mode.value = 'error'
       error.value = getCmsErrorMessage(failure, 'The recovery copy could not be cleared.')
       return
     }
@@ -293,12 +308,17 @@ export function useSharedEntryBody(
     error,
     recoverySource,
     recoveryMarkdown,
+    archivedRecoveries,
     mountKey,
     ready: computed(() => mode.value === 'local' || mode.value === 'shared'),
     retry: () => (session.value ? session.value.retry() : open()),
     reopen: () =>
       session.value?.getRecovery() || recoverySource.value ? keepRecoveryAndReopen() : open(),
     downloadRecovery,
+    downloadArchivedRecovery: (key: string) => {
+      const copy = archivedRecoveries.value.find((item) => item.key === key)
+      return copy ? downloadRecovery(copy.source) : false
+    },
     keepRecoveryAndReopen,
   }
 }

@@ -25,8 +25,15 @@ becomes full, the latest copy survives in a tab-lifetime owner under the old key
 transport still closes on forced retirement. Returning as that principal shows
 a memory-only warning and requires export before reopening. A reload warning
 protects this fallback, but it cannot survive a browser crash or forced exit.
-The explicit export-and-reopen action closes the old session before
-removing its exported copy, so that close cannot reinsert stale operations.
+The explicit export-and-reopen action closes the old session, archives its
+JSON under the same principal/document/locale ownership, and only then removes
+the active pending copy. A browser download click is not evidence that a file
+was saved. Archived copies remain downloadable after reopening or remounting,
+never replay into a room, and are deduplicated by exact JSON. If archiving fails,
+the existing memory fallback retains the latest bytes and reopening stops;
+download-only remains usable even when browser storage is full. These copies
+last only for the current browser tab/session. Editing controls are disabled per
+field so permission loss does not disable recovery download buttons.
 
 Only the installed contract's top-level body field opens a shared room. Nested
 richtext and structured-page fields keep their scalar field identity. Both

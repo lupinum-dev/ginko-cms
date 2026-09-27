@@ -422,6 +422,14 @@ function onConversionRecovered() {
           v-if="shared.recoverySource.value"
           variant="outline"
           size="sm"
+          @click="shared.downloadRecovery()"
+        >
+          Download recovery
+        </Button>
+        <Button
+          v-if="shared.recoverySource.value"
+          variant="outline"
+          size="sm"
           @click="shared.keepRecoveryAndReopen()"
         >
           Download recovery and reopen
@@ -435,7 +443,21 @@ function onConversionRecovered() {
       />
       <Button
         v-if="
-          shared.state.value && ['stale', 'error', 'closed'].includes(shared.state.value.status)
+          shared.mode.value !== 'error' &&
+          shared.state.value?.pendingSteps &&
+          ['stale', 'error', 'closed'].includes(shared.state.value.status)
+        "
+        variant="outline"
+        size="sm"
+        @click="shared.downloadRecovery()"
+      >
+        Download recovery
+      </Button>
+      <Button
+        v-if="
+          shared.mode.value !== 'error' &&
+          shared.state.value &&
+          ['stale', 'error', 'closed'].includes(shared.state.value.status)
         "
         variant="outline"
         size="sm"
@@ -445,6 +467,20 @@ function onConversionRecovered() {
           shared.state.value.pendingSteps ? 'Download recovery and reopen' : 'Reopen shared body'
         }}
       </Button>
+      <div v-if="shared.archivedRecoveries.value.length" class="ginko:space-y-2">
+        <p class="ginko:text-sm ginko:text-muted-foreground">
+          Recovery copies remain in this browser tab. They are never replayed into the draft.
+        </p>
+        <Button
+          v-for="(copy, index) in shared.archivedRecoveries.value"
+          :key="copy.key"
+          variant="outline"
+          size="sm"
+          @click="shared.downloadArchivedRecovery(copy.key)"
+        >
+          Download saved recovery {{ index + 1 }}
+        </Button>
+      </div>
       <StudioAssetMetadataDialog
         v-if="assetContext && !disabled"
         :asset-id="metadataAssetId"
