@@ -4831,7 +4831,29 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       getSharedBodyHead: FunctionReference<
         "query",
         "internal",
-        { entryId: string; locale: string },
+        {
+          _trustedCaller?:
+            | { kind: "anonymous"; subject: "system:anonymous" }
+            | {
+                email?: string;
+                emailVerified?: boolean;
+                kind: "user";
+                name?: string;
+                subject: string;
+                userId: string;
+              }
+            | {
+                clientId: string;
+                issuer: string;
+                kind: "mcp";
+                scopes: Array<string>;
+                subject: string;
+                userId: string;
+              }
+            | { deployId: string; kind: "deploy"; subject: string };
+          entryId: string;
+          locale: string;
+        },
         {
           epoch: string;
           policyRevision: string;
@@ -5589,6 +5611,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           _expectedContentHash?: string;
           _expectedPresentationHash?: string;
+          _trustedCaller?:
+            | { kind: "anonymous"; subject: "system:anonymous" }
+            | {
+                email?: string;
+                emailVerified?: boolean;
+                kind: "user";
+                name?: string;
+                subject: string;
+                userId: string;
+              }
+            | {
+                clientId: string;
+                issuer: string;
+                kind: "mcp";
+                scopes: Array<string>;
+                subject: string;
+                userId: string;
+              }
+            | { deployId: string; kind: "deploy"; subject: string };
           entryId: string;
           locale: string;
         },
@@ -6067,6 +6108,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         {
+          _trustedCaller?:
+            | { kind: "anonymous"; subject: "system:anonymous" }
+            | {
+                email?: string;
+                emailVerified?: boolean;
+                kind: "user";
+                name?: string;
+                subject: string;
+                userId: string;
+              }
+            | {
+                clientId: string;
+                issuer: string;
+                kind: "mcp";
+                scopes: Array<string>;
+                subject: string;
+                userId: string;
+              }
+            | { deployId: string; kind: "deploy"; subject: string };
           entryId: string;
           epoch: string;
           locale: string;
@@ -6107,6 +6167,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           _expectedContentHash?: string;
           _expectedPresentationHash?: string;
+          _trustedCaller?:
+            | { kind: "anonymous"; subject: "system:anonymous" }
+            | {
+                email?: string;
+                emailVerified?: boolean;
+                kind: "user";
+                name?: string;
+                subject: string;
+                userId: string;
+              }
+            | {
+                clientId: string;
+                issuer: string;
+                kind: "mcp";
+                scopes: Array<string>;
+                subject: string;
+                userId: string;
+              }
+            | { deployId: string; kind: "deploy"; subject: string };
           clientId: string;
           entryId: string;
           epoch: string;
@@ -6480,7 +6559,29 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         getSharedBodyHead: FunctionReference<
           "query",
           "internal",
-          { entryId: string; locale: string },
+          {
+            _trustedCaller?:
+              | { kind: "anonymous"; subject: "system:anonymous" }
+              | {
+                  email?: string;
+                  emailVerified?: boolean;
+                  kind: "user";
+                  name?: string;
+                  subject: string;
+                  userId: string;
+                }
+              | {
+                  clientId: string;
+                  issuer: string;
+                  kind: "mcp";
+                  scopes: Array<string>;
+                  subject: string;
+                  userId: string;
+                }
+              | { deployId: string; kind: "deploy"; subject: string };
+            entryId: string;
+            locale: string;
+          },
           {
             epoch: string;
             policyRevision: string;
@@ -6496,6 +6597,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           {
             _expectedContentHash?: string;
             _expectedPresentationHash?: string;
+            _trustedCaller?:
+              | { kind: "anonymous"; subject: "system:anonymous" }
+              | {
+                  email?: string;
+                  emailVerified?: boolean;
+                  kind: "user";
+                  name?: string;
+                  subject: string;
+                  userId: string;
+                }
+              | {
+                  clientId: string;
+                  issuer: string;
+                  kind: "mcp";
+                  scopes: Array<string>;
+                  subject: string;
+                  userId: string;
+                }
+              | { deployId: string; kind: "deploy"; subject: string };
             entryId: string;
             locale: string;
           },
@@ -6518,6 +6638,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "query",
           "internal",
           {
+            _trustedCaller?:
+              | { kind: "anonymous"; subject: "system:anonymous" }
+              | {
+                  email?: string;
+                  emailVerified?: boolean;
+                  kind: "user";
+                  name?: string;
+                  subject: string;
+                  userId: string;
+                }
+              | {
+                  clientId: string;
+                  issuer: string;
+                  kind: "mcp";
+                  scopes: Array<string>;
+                  subject: string;
+                  userId: string;
+                }
+              | { deployId: string; kind: "deploy"; subject: string };
             entryId: string;
             epoch: string;
             locale: string;
@@ -6558,6 +6697,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           {
             _expectedContentHash?: string;
             _expectedPresentationHash?: string;
+            _trustedCaller?:
+              | { kind: "anonymous"; subject: "system:anonymous" }
+              | {
+                  email?: string;
+                  emailVerified?: boolean;
+                  kind: "user";
+                  name?: string;
+                  subject: string;
+                  userId: string;
+                }
+              | {
+                  clientId: string;
+                  issuer: string;
+                  kind: "mcp";
+                  scopes: Array<string>;
+                  subject: string;
+                  userId: string;
+                }
+              | { deployId: string; kind: "deploy"; subject: string };
             clientId: string;
             entryId: string;
             epoch: string;

@@ -144,6 +144,7 @@ async function history(
 
 export const openSharedBody = callerMutation.protected({
   id: 'editor:openSharedBody',
+  acceptsTrustedCaller: true,
   args: openArgs.args,
   guard: canEditEntries,
   returns: v.union(
@@ -228,6 +229,7 @@ export const openSharedBody = callerMutation.protected({
 
 export const getSharedBodyHead = callerQuery.protected({
   id: 'editor:getSharedBodyHead',
+  acceptsTrustedCaller: true,
   args: headArgs.args,
   guard: canRead,
   returns: editorCollaborationHeadValidator,
@@ -235,6 +237,7 @@ export const getSharedBodyHead = callerQuery.protected({
 })
 export const pullSharedBody = callerQuery.protected({
   id: 'editor:pullSharedBody',
+  acceptsTrustedCaller: true,
   args: pullArgs.args,
   guard: canRead,
   returns: editorCollaborationReplyValidator,
@@ -242,6 +245,7 @@ export const pullSharedBody = callerQuery.protected({
 })
 export const pushSharedBody = callerMutation.protected({
   id: 'editor:pushSharedBody',
+  acceptsTrustedCaller: true,
   args: pushArgs.args,
   guard: canEditEntries,
   returns: editorCollaborationReplyValidator,

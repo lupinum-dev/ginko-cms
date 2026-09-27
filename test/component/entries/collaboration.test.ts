@@ -1,5 +1,12 @@
 /// <reference types="vite/client" />
 
+import {
+  openSharedBody,
+  getSharedBodyHead,
+  pullSharedBody,
+  pushSharedBody,
+} from '@lupinum/ginko-cms-contract/convex/schemas/editor.js'
+import { cmsUserCaller } from '@lupinum/ginko-cms-contract/shared/caller.js'
 import type { PortableComponentPolicyV2 } from '@lupinum/ginko-content/cms-contract'
 import type { CollaborationSnapshot } from '@lupinum/ginko-editor/runtime'
 import { anyApi } from 'convex/server'
@@ -76,6 +83,42 @@ async function fixture(source = 'Body.') {
 }
 
 describe('shared entry bodies', () => {
+  it('keeps caller authority out of all four public host argument contracts', () => {
+    for (const definition of [openSharedBody, getSharedBodyHead, pullSharedBody, pushSharedBody])
+      expect(definition.args).not.toHaveProperty('_trustedCaller')
+  })
+
+  it('accepts the host-bound caller on all room operations and rechecks current membership', async () => {
+    const { ctx, owner, identity } = await fixture()
+    await seedMember(ctx, { userId: 'editor-2', role: 'editor' })
+    const caller = { _trustedCaller: cmsUserCaller('editor-2') }
+    const opened = await owner.mutation(api.editor.openSharedBody, { ...identity, ...caller })
+    const { document: _document, ...head } = opened.snapshot
+    await expect(
+      ctx.raw.query(api.editor.getSharedBodyHead, { ...identity, ...caller }),
+    ).resolves.toMatchObject({ version: 0 })
+    await expect(
+      ctx.raw.query(api.editor.pullSharedBody, { ...identity, ...head, ...caller }),
+    ).resolves.toMatchObject({ status: 'ok' })
+    await expect(
+      owner.mutation(api.editor.pushSharedBody, {
+        ...identity,
+        ...head,
+        ...caller,
+        clientId: 'editor-2/session_a',
+        steps: [insert('Host ')],
+      }),
+    ).resolves.toMatchObject({ status: 'ok', update: { version: 1 } })
+    await ctx.raw.run(async (inner) => {
+      for (const member of await inner.db.query('members').collect())
+        if (member.userId === 'editor-2') await inner.db.delete(member._id)
+    })
+    await expect(
+      ctx.raw.query(api.editor.getSharedBodyHead, { ...identity, ...caller }),
+    ).rejects.toThrow()
+    expect((await ctx.readAll('entryLocaleDrafts'))[0]!.bodyMdc).toBe('Host Body.\n')
+  })
+
   it('accepts current protocol metadata and rejects unknown versions before a write', async () => {
     const { ctx, owner, identity, snapshot, push } = await fixture()
     expect(snapshot.protocolVersion).toBe(1)
