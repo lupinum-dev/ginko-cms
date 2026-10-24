@@ -191,7 +191,7 @@ describe('coordinated CMS candidate release contract', () => {
     expect(workflow).toContain('actions/setup-node@820762786026740c76f36085b0efc47a31fe5020')
     expect(workflow).toContain('persist-credentials: false')
     expect(workflow).toContain("GINKO_COREPACK_VERSION: '0.34.5'")
-    expect(workflow).toContain("GINKO_NODE_VERSION: '24.18.0'")
+    expect(workflow).toContain("GINKO_NODE_VERSION: '24.22.1'")
     expect(workflow).toContain('corepack@"$GINKO_COREPACK_VERSION"')
     expect(workflow).toContain('pnpm install --frozen-lockfile')
     expect(workflow).toContain('matrix.sourceRehearsal.betterConvexCommit')
