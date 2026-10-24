@@ -14,7 +14,7 @@ permissions:
 
 env:
   GINKO_COREPACK_VERSION: '0.34.5'
-  GINKO_NODE_VERSION: '24.18.0'
+  GINKO_NODE_VERSION: '24'
 
 jobs:
   foundation:
@@ -45,6 +45,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.GINKO_NODE_VERSION }}
+          check-latest: true
           package-manager-cache: false
 
       - name: Install pinned package-manager launcher
