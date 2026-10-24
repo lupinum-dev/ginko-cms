@@ -15,7 +15,7 @@ concurrency:
 
 env:
   GINKO_COREPACK_VERSION: '0.34.5'
-  GINKO_NODE_VERSION: '24.18.0'
+  GINKO_NODE_VERSION: '24.22.1'
 
 jobs:
   verify-source:
