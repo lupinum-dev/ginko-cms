@@ -10,3 +10,16 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
   vue-demi: true
+overrides:
+  # Published @lupinum/better-convex-mcp pins 2.0.0 (GHSA-jm63-cq47-j5jp, GHSA-46jr-4wx8-v453,
+  # GHSA-rvq5-wwqv-78pq). Remove when Better Convex MCP requires 2.3.0 or newer.
+  '@modelcontextprotocol/server@<2.3.0': 2.3.1
+  # Published @lupinum/ginko-content 1.0.0-beta.4 pins zod 4.4.3 (GHSA-mrhx-c7xc-m3w5).
+  # Remove when the release tuple moves to a Ginko Content that requires 4.6.6 or newer.
+  'zod@<4.6.6': 4.6.7
+auditConfig:
+  ignoreGhsas:
+    # node-forge has no published fix. It reaches the graph only through listhen, which signs
+    # self-signed certificates for the Nuxt dev server; no CMS code verifies RSA signatures with it.
+    # Recheck 2026-11-06.
+    - GHSA-86w9-cpqp-85rv

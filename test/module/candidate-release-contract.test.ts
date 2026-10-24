@@ -82,7 +82,7 @@ describe('coordinated CMS candidate release contract', () => {
       '@lupinum/better-convex-nuxt': '1.0.0-beta.3',
       '@lupinum/better-convex-vue': '1.0.0-beta.3',
       convex: '1.42.2',
-      nuxt: '4.5.2',
+      nuxt: '4.6.2',
       vue: '3.5.42',
     })
 
