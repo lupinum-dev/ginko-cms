@@ -40,10 +40,10 @@
     }
   },
   "tracked": {
-    "@modelcontextprotocol/server": ["2.0.0"],
+    "@modelcontextprotocol/server": ["2.3.1"],
     "@nuxtjs/sitemap": ["^8.0.15", "8.0.15"],
     "nuxt-i18n-micro": ["3.28.0"],
-    "@nuxt/kit": ["4.5.2"],
+    "@nuxt/kit": ["4.6.2"],
     "@better-auth/oauth-provider": ["1.7.2"],
     "@lupinum/better-convex-mcp": ["1.0.0-beta.1"],
     "@lupinum/ginko-content": ["1.0.0-beta.4"],
@@ -53,23 +53,23 @@
     "convex": ["1.42.2", "^1.42.2"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
-    "nuxt": ["4.5.2"],
+    "nuxt": ["4.6.2"],
     "typescript": ["~5.9.3", "^5.9.3", "5.9.3"],
-    "vite": ["8.1.5"],
-    "vue": ["3.5.42"],
+    "vite": ["8.3.5"],
+    "vue": ["3.5.44"],
     "vue-tsc": ["^3.3.7", "3.3.7"]
   },
   "consumer": {
     "dependencies": {
-      "@nuxt/kit": "4.5.2",
+      "@nuxt/kit": "4.6.2",
       "@lupinum/better-convex-mcp": "1.0.0-beta.1",
       "@lupinum/ginko-content": "1.0.0-beta.4",
       "better-auth": "1.7.2",
       "@lupinum/better-convex-nuxt": "1.0.0-beta.3",
       "@lupinum/better-convex-vue": "1.0.0-beta.3",
       "convex": "1.42.2",
-      "nuxt": "4.5.2",
-      "vue": "3.5.42"
+      "nuxt": "4.6.2",
+      "vue": "3.5.44"
     },
     "devDependencies": {
       "@types/node": "^25.8.0",
@@ -79,7 +79,6 @@
   },
   "intentionalHolds": [
     "Strict npm is mandatory for RC.2 and passes without a peer exception after selecting corrected @napi-rs/wasm-runtime 1.2.1.",
-    "npm reports GHSA-mh99-v99m-4gvg in the Nuxt 4.5.2/Nitropack 2 build-time archive graph because the advisory only patches brace-expansion 5 while upstream minimatch ranges still select 2.x. The exact packed consumer must prove that brace-expansion, minimatch, glob, archiver, archiver-utils, and readdir-glob are absent from the deployed Nitro server output. Remove this hold when Nuxt publishes a compatible Nitro dependency graph; do not force or override the consumer graph.",
     "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
     "Nuxt DevTools stays on the 3.x stable line while 4.x is alpha."
   ]

@@ -137,17 +137,20 @@ invent a deputy, independent reviewer, or notification test.
   patched version without help and `pnpm audit --prod --audit-level low` remains
   green.
 
-Current temporary overrides are for audit and ecosystem compatibility:
+Current temporary overrides and audit exceptions:
 
-- `brace-expansion`, `devalue`, `fast-uri`, `fast-xml-builder`, `hono`,
-  `ip-address`, `kysely`, `mermaid`, `nitropack`, `oxc-parser`, `postcss`,
-  `simple-git`, `vue-sfc-transformer`, and `ws` keep transitive production
-  resolution and audit clean.
-- `qs` is held at the patched `6.15.2` line for the transitive Express parser
-  chain currently pulled in by MCP tooling.
-- `auditConfig.ignoreGhsas` contains the current unfixable `elliptic` advisory
-  from the MCP tooling chain. Remove it as soon as upstream stops resolving
-  `elliptic` or npm publishes a patched range.
+- `@modelcontextprotocol/server@<2.3.0` resolves to `2.3.1` because the
+  published `@lupinum/better-convex-mcp` pins `2.0.0`, which has high MCP
+  transport and validation advisories. Remove it when Better Convex MCP
+  requires `2.3.0` or newer.
+- `zod@<4.6.6` resolves to `4.6.7` because the published
+  `@lupinum/ginko-content@1.0.0-beta.4` pins `4.4.3` (GHSA-mrhx-c7xc-m3w5).
+  Remove it when the release tuple moves to a Ginko Content that requires
+  `4.6.6` or newer.
+- `auditConfig.ignoreGhsas` contains `GHSA-86w9-cpqp-85rv` (node-forge, no
+  published fix). It reaches the graph only through `listhen`, which creates
+  self-signed certificates for the Nuxt dev server. Recheck on 2026-11-06 and
+  remove it as soon as a patched node-forge is published.
 - `convex@1.42.2` is the release tuple pin.
 - `h3@1.15.11` is held until h3 2 is stable and Nuxt ecosystem peers accept it.
 - Vite 7 and Nuxt DevTools 3 are held until their next major lines are stable
